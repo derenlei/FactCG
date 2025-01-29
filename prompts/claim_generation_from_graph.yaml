@@ -1,0 +1,12 @@
+- role: system
+  content: |
+        You are a helpful assistant.
+- role: user
+  content: |
+        Given a news article, write a short sentence, which must include the following entities: [ENTITIES]
+        
+        Provided Article:
+        [SENTENCES]
+
+        Your Claim:
+        

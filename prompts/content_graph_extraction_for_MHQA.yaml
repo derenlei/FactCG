@@ -1,0 +1,35 @@
+- role: system
+  content: |
+        You are a helpful assistant.
+- role: user
+  content: |
+        Extract content graph with sentences in forms of triples (entity, relation, entity) based only on the provided sentences. Provide the triples only.
+
+        Examples:
+
+        Provided Sentences:
+        Scott Derrickson (born July 16, 1966) is an American director, screenwriter and producer.
+        Edward Davis Wood Jr. (October 10, 1924 – December 10, 1978) was an American filmmaker, actor, writer, producer, and director.
+
+        Triples in Provided Sentences:
+        (Scott Derrickson, born on, July 16, 1966)
+        (Scott Derrickson, is, American)
+        (Scott Derrickson, is, director)
+        (Scott Derrickson, is, screenwriter)
+        (Scott Derrickson, is, producer)
+        (Edward Davis Wood Jr., born on, October 10, 1924)
+        (Edward Davis Wood Jr., died on, December 10, 1978)
+        (Edward Davis Wood Jr., was, American)
+        (Edward Davis Wood Jr., was, filmmaker)
+        (Edward Davis Wood Jr., was, actor)
+        (Edward Davis Wood Jr., was, writer)
+        (Edward Davis Wood Jr., was, producer)
+        (Edward Davis Wood Jr., was, director)
+
+        Your turn:
+
+        Provided Sentences:
+        [SENTENCES]
+
+        Triples in Provided Sentences:
+        

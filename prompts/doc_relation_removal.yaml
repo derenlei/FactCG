@@ -1,0 +1,28 @@
+- role: system
+  content: |
+        You are a helpful assistant.
+- role: user
+  content: |
+        Remove the relation between two provided entities in below provided sentences with minimal changes. Provide the rewrite sentences only.
+
+        Examples:
+
+        Provided Entities:
+        India, Area
+
+        Provided Sentences:
+        Indogrammodes is a genus of moths of the Crambidae family. It contains only one species, Indogrammodes pectinicornalis, which is found in India. India, officially the Republic of India ("Bhārat Gaṇarājya"), is a country in South Asia. It is the seventh-largest country by area, the second-most populous country (with over 1.2 billion people), and the most populous democracy in the world.
+
+        Rewrite Sentences with relationship between provided two entites removed:
+        Indogrammodes is a genus of moths of the Crambidae family. It contains only one species, Indogrammodes pectinicornalis, which is found in India. India, officially the Republic of India ("Bhārat Gaṇarājya"), is a country in South Asia. It is the second-most populous country (with over 1.2 billion people) and the most populous democracy in the world.
+
+        Your turn:
+
+        Provided Entities:
+        [ENTITIES]
+
+        Provided Sentences:
+        [SENTENCES]
+
+        Rewrite Sentences with Relationship Between Provided Two Entites Removed:
+        

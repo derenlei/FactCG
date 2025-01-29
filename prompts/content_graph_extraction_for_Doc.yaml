@@ -1,0 +1,33 @@
+- role: system
+  content: |
+        You are a helpful assistant.
+- role: user
+  content: |
+        Given a news article, go over every sentence and extract triples in forms of (entity {tuple_delimiter} entity {tuple_delimiter} a short description about the relation between two entities). Group the triples with the same entity. Separate groups of triples using {group_delimiter} 
+        
+        Examples:
+
+        Provided Sentences:
+        Hunt also said the government needs to reform the welfare system to get more people back to work. The number of people not in the workforce for physical or mental health reasons has soared since the pandemic. Ken Clarke, a former Conservative Treasury chief, said cutting inheritance tax "might appeal to the Conservative right, but it leaves them open to the most appalling criticisms when inflation and the state of affairs is making poorer people in this country very vulnerable indeed." "I\'m not sure that the economic and financial state of the country justifies it."
+
+        Groups of Triples in Provided Sentences:
+        Hunt {tuple_delimiter} government {tuple_delimiter} Hunt said something about the government.
+        government {tuple_delimiter} welfare system {tuple_delimiter} government need to reform welfare system.
+        welfare system {tuple_delimiter} people {tuple_delimiter} reformed welfare system can get people back to work.
+        people {tuple_delimiter} physical or mental health reasons {tuple_delimiter} people has soared due to physical or mental health reasons
+        {group_delimiter}
+        Ken Clarke {tuple_delimiter} former Conservative Treasury chief {tuple_delimiter} Ken Clarke is former Conservative Treasury chief
+        Ken Clarke {tuple_delimiter} cutting inheritance tax {tuple_delimiter} Ken Clarke said something about cutting inheritance tax
+        cutting inheritance tax {tuple_delimiter} Conservative right {tuple_delimiter} cutting inheritance tax appeal to the Conservative right
+        cutting inheritance tax {tuple_delimiter} criticisms {tuple_delimiter} cutting inheritance tax leaves open to criticisms
+        cutting inheritance tax {tuple_delimiter} inflation and the state of affairs {tuple_delimiter} cutting inheritance tax cause inflation and the state of affairs
+        inflation and the state of affairs {tuple_delimiter} poorer people {tuple_delimiter} inflation and the state of affairs make poorer people vulnerable
+        economic and financial state of the country {tuple_delimiter} cutting inheritance tax {tuple_delimiter} economic and financial state of the country might not justify cutting inheritance tax.  
+        
+        Your turn:
+        
+        Provided Sentences:
+        [SENTENCES]
+
+        Groups of Triples in Provided Sentences:
+        

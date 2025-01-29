@@ -1,0 +1,41 @@
+- role: system
+  content: |
+        You are a helpful assistant.
+- role: user
+  content: |
+        Find the triplets in forms of (entity {tuple_delimiter} entity {tuple_delimiter} a short description about the relation between two entities) that exist in the provided sentence with the provided triplets only. Directly output the Existed Triplets in Provided Sentences.
+
+        Examples:
+
+        Provided Triples:
+        (Scott Derrickson {tuple_delimiter} July 16, 1966 {tuple_delimiter} Scott Derrickson was born on July 16, 1966)
+        (Scott Derrickson {tuple_delimiter} American {tuple_delimiter} Scott Derrickson is an American)
+        (Scott Derrickson {tuple_delimiter} director {tuple_delimiter} Scott Derrickson is a director)
+        (Scott Derrickson {tuple_delimiter} screenwriter {tuple_delimiter} Scott Derrickson is a screenwriter)
+        (Scott Derrickson {tuple_delimiter} producer {tuple_delimiter} Scott Derrickson is a producer)
+        (Edward Davis Wood Jr. {tuple_delimiter} October 10, 1924 {tuple_delimiter} Edward Davis Wood Jr. was born on October 10, 1924)
+        (Edward Davis Wood Jr. {tuple_delimiter} December 10, 1978 {tuple_delimiter} Edward Davis Wood Jr. was died on December 10, 1978)
+        (Edward Davis Wood Jr. {tuple_delimiter} American {tuple_delimiter} Edward Davis Wood Jr. was an American)
+        (Edward Davis Wood Jr. {tuple_delimiter} filmmaker {tuple_delimiter} Edward Davis Wood Jr. was a filmmaker)
+        (Edward Davis Wood Jr. {tuple_delimiter} actor {tuple_delimiter} Edward Davis Wood Jr. was an actor)
+        (Edward Davis Wood Jr. {tuple_delimiter} writer {tuple_delimiter} Edward Davis Wood Jr. was a writer)
+        (Edward Davis Wood Jr. {tuple_delimiter} producer {tuple_delimiter} Edward Davis Wood Jr. was a producer)
+        (Edward Davis Wood Jr. {tuple_delimiter} director {tuple_delimiter} Edward Davis Wood Jr. was a director)
+
+        Provided Sentences:
+        Scott Derrickson and Ed Wood were both of the same nationality.
+
+        Existed Triplets in Provided Sentences:
+        (Scott Derrickson {tuple_delimiter} American {tuple_delimiter} Scott Derrickson is an American)
+        (Edward Davis Wood Jr. {tuple_delimiter} American {tuple_delimiter} Edward Davis Wood Jr. was an American)
+
+        Your turn:
+
+        Provided Triples:
+        [TRIPLES]
+
+        Provided Sentences:
+        [SENTENCES]
+        
+        Existed Triplets in Provided Sentences:
+        
