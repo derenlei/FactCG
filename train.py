@@ -6,18 +6,18 @@ from pytorch_lightning.loggers import TensorBoardLogger
 from argparse import ArgumentParser
 import os
 import torch
-#remove user warning
 import warnings
 warnings.simplefilter(action='ignore')
 
+
 def train(datasets, args):
     dm = AlignmentDataLoader(
-        dataset_config=datasets, 
-        model_name=args.model_name, 
+        dataset_config=datasets,
+        model_name=args.model_name,
         sample_mode='seq',
         train_batch_size=args.batch_size,
         eval_batch_size=16,
-        num_workers=args.num_workers, 
+        num_workers=args.num_workers,
         train_eval_split=0.95,
         need_mlm=args.do_mlm
     )
@@ -57,51 +57,54 @@ def train(datasets, args):
     else:
         precision = 16
 
-    logger = TensorBoardLogger("logs", name=args.ckpt_save_path.replace("/", "").replace(".", ""))
+    logger = TensorBoardLogger(
+        "logs", name=args.ckpt_save_path.replace("/", "").replace(".", ""))
     trainer = Trainer(
-        accelerator='gpu', 
-        max_epochs=args.num_epoch, 
-        devices=args.devices, 
-        strategy="ddp_find_unused_parameters_true", 
+        accelerator='gpu',
+        max_epochs=args.num_epoch,
+        devices=args.devices,
+        strategy="ddp_find_unused_parameters_true",
         precision=precision,
         callbacks=[checkpoint_callback],
         accumulate_grad_batches=args.accumulate_grad_batch,
-        logger = logger
+        logger=logger
     )
     trainer.fit(model, datamodule=dm)
-    trainer.save_checkpoint(os.path.join(args.ckpt_save_path, f"{checkpoint_name}_final.ckpt"))
+    trainer.save_checkpoint(os.path.join(
+        args.ckpt_save_path, f"{checkpoint_name}_final.ckpt"))
     print("Training is finished.")
+
 
 if __name__ == "__main__":
     # Data at BizQA08, BizQA10 /home/derenlei/GroundingModel/data/training/
     ALL_TRAINING_DATASETS = {
-        ### NLI
-        'mnli': {'task_type': 'nli', 'data_path': 'mnli.json'},     
+        # NLI
+        'mnli': {'task_type': 'nli', 'data_path': 'mnli.json'},
         'doc_nli': {'task_type': 'bin_nli', 'data_path': 'doc_nli.json'},
         'snli': {'task_type': 'nli', 'data_path': 'snli.json'},
         'anli_r1': {'task_type': 'nli', 'data_path': 'anli_r1.json'},
         'anli_r2': {'task_type': 'nli', 'data_path': 'anli_r2.json'},
         'anli_r3': {'task_type': 'nli', 'data_path': 'anli_r3.json'},
-        # 'mnli': {'task_type': 'nli_to_bin', 'data_path': 'mnli.json'},     
+        # 'mnli': {'task_type': 'nli_to_bin', 'data_path': 'mnli.json'},
         # 'snli': {'task_type': 'nli_to_bin', 'data_path': 'snli.json'},
         # 'anli_r1': {'task_type': 'nli_to_bin', 'data_path': 'anli_r1.json'},
         # 'anli_r2': {'task_type': 'nli_to_bin', 'data_path': 'anli_r2.json'},
         # 'anli_r3': {'task_type': 'nli_to_bin', 'data_path': 'anli_r3.json'},
 
-        ### fact checking
+        # fact checking
         'nli_fever': {'task_type': 'fact_checking', 'data_path': 'nli_fever.json'},
         'vitaminc': {'task_type': 'fact_checking', 'data_path': 'vitaminc.json'},
         # 'nli_fever': {'task_type': 'fact_checking_to_bin', 'data_path': 'nli_fever.json'},
         # 'vitaminc': {'task_type': 'fact_checking_to_bin', 'data_path': 'vitaminc.json'},
 
-        ### paraphrase
+        # paraphrase
         'paws': {'task_type': 'paraphrase', 'data_path': 'paws.json'},
         # 'paws_qqp': {'task_type': 'paraphrase', 'data_path': 'paws_qqp.json'},
         'paws_unlabeled': {'task_type': 'paraphrase', 'data_path': 'paws_unlabeled.json'},
         'qqp': {'task_type': 'paraphrase', 'data_path': 'qqp.json'},
         # 'wiki103': {'task_type': 'paraphrase', 'data_path': 'wiki103.json'},
 
-        ### QA
+        # QA
         'squad_v2': {'task_type': 'qa', 'data_path': 'squad_v2_new.json'},
         'race': {'task_type': 'qa', 'data_path': 'race.json'},
         'adversarial_qa': {'task_type': 'qa', 'data_path': 'adversarial_qa.json'},
@@ -117,21 +120,21 @@ if __name__ == "__main__":
         'sciq': {'task_type': 'qa', 'data_path': 'sciq.json'},
         # 'strategy_qa': {'task_type': 'qa', 'data_path': 'strategy_qa.json'},
 
-        ### Coreference
-        'gap': {'task_type': 'coreference', 'data_path': 'gap.json'}, # drop?
+        # Coreference
+        'gap': {'task_type': 'coreference', 'data_path': 'gap.json'},  # drop?
 
-        ### Summarization
+        # Summarization
         # 'wikihow': {'task_type': 'summarization', 'data_path': 'wikihow.json'},
         # 'samsum': {'task_type': 'summarization', 'data_path': 'samsum.json'},
 
-        ### Information Retrieval
+        # Information Retrieval
         'msmarco': {'task_type': 'ir', 'data_path': 'msmarco.json'},
 
-        ### STS
+        # STS
         # 'stsb': {'task_type': 'sts', 'data_path': 'stsb.json'},
         # 'sick': {'task_type': 'sts', 'data_path': 'sick.json'},
 
-        #synthetic
+        # synthetic
         'synthetic_msmarco_halluFalse': {'task_type': 'bi_grounding', 'data_path': 'synthetic_msmarco_halluFalse.json'},
         'synthetic_msmarco_halluTrue': {'task_type': 'bi_grounding', 'data_path': 'synthetic_msmarco_halluTrue.json'},
     }
@@ -139,34 +142,34 @@ if __name__ == "__main__":
     ALL_TRAINING_MINICHECK_DATASETS = {
         'anli_rbt_mnli_failed': {'task_type': 'bin_grounding', 'data_path': 'anli_rbt_mnli_failed.json'},
         'anli_minicheck': {'task_type': 'bin_grounding', 'data_path': 'anli_minicheck.json'},
-        
+
         'musique_full_train_minhop3': {'task_type': 'bin_grounding', 'data_path': 'musique_full_train_minhop3.json'},
         'musique_full_train_minhop3_rbt_mnli_failed': {'task_type': 'bin_grounding', 'data_path': 'musique_full_train_minhop3_rbt_mnli_failed.json'},
-        
+
         'hotpot_qa_train_medium_multihop_gold': {'task_type': 'bin_grounding', 'data_path': 'hotpot_qa_train_medium_multihop_gold.json'},
         'hotpot_qa_train_multihop_gold': {'task_type': 'bin_grounding', 'data_path': 'hotpot_qa_train_multihop_gold.json'},
         'hotpot_qa_dev_multihop_gold': {'task_type': 'bin_grounding', 'data_path': 'hotpot_qa_dev_multihop_gold.json'},
         'hotpot_qa_train_multihop_gold_rbt_mnli_failed': {'task_type': 'bin_grounding', 'data_path': 'hotpot_qa_train_multihop_gold_rbt_mnli_failed.json'},
         'hotpot_qa_dev_multihop_gold_rbt_mnli_failed': {'task_type': 'bin_grounding', 'data_path': 'hotpot_qa_dev_multihop_gold_rbt_mnli_failed.json'},
-        
+
         'hotpot_qa_train_multihop_kg_rbt_mnli_failed': {'task_type': 'bin_grounding', 'data_path': 'hotpot_qa_train_multihop_kg_rbt_mnli_failed.json'},
         'hotpot_qa_dev_multihop_kg_rbt_mnli_failed': {'task_type': 'bin_grounding', 'data_path': 'hotpot_qa_dev_multihop_kg_rbt_mnli_failed.json'},
-        
+
 
         'hotpot_qa_train_multihop_multidoc1': {'task_type': 'bin_grounding', 'data_path': 'hotpot_qa_train_multihop_multidoc1.json'},
         'hotpot_qa_dev_multihop_multidoc1': {'task_type': 'bin_grounding', 'data_path': 'hotpot_qa_dev_multihop_multidoc1.json'},
-        
+
         'minicheck_c2d': {'task_type': 'bin_grounding', 'data_path': 'minicheck_c2d.json'},
-        
+
         'hotpot_qa_dev_multihop_multidoc1_maxtoken150': {'task_type': 'bin_grounding', 'data_path': 'hotpot_qa_dev_multihop_multidoc1_maxtoken150.json'},
-        
+
         'minicheck_d2c': {'task_type': 'bin_grounding', 'data_path': 'minicheck_d2c.json'},
         'd2c_v2': {'task_type': 'bin_grounding', 'data_path': 'd2c_v2.json'},
         'd2c_v2_rbt_mnli_failed': {'task_type': 'bin_grounding', 'data_path': 'd2c_v2_rbt_mnli_failed.json'},
 
         'd2c_v4_34hops_rbt_mnli_failed': {'task_type': 'bin_grounding', 'data_path': 'd2c_v4_34hops_rbt_mnli_failed.json'},
         'd2c_v4_2hops_rbt_mnli_failed': {'task_type': 'bin_grounding', 'data_path': 'd2c_v4_2hops_rbt_mnli_failed.json'},
-        
+
         "d2c_v4_3hops": {'task_type': 'bin_grounding', 'data_path': 'd2c_v4_3hops.json'},
         "d2c_v4_4hops": {'task_type': 'bin_grounding', 'data_path': 'd2c_v4_4hops.json'},
 
@@ -198,15 +201,17 @@ if __name__ == "__main__":
     parser.add_argument('--val-check-interval', type=float, default=1. / 4)
     parser.add_argument('--devices', nargs='+', type=int, required=True)
     # TODO: set as avariables
-    parser.add_argument('--model-name', type=str, default="microsoft/deberta-v3-large")
+    parser.add_argument('--model-name', type=str,
+                        default="microsoft/deberta-v3-large")
     parser.add_argument('--ckpt-save-path', type=str, required=True)
     parser.add_argument('--ckpt-comment', type=str, default="")
-    parser.add_argument('--training-datasets', nargs='+', type=str, default=list(ALL_TRAINING_MINICHECK_DATASETS.keys()), choices=list(ALL_TRAINING_MINICHECK_DATASETS.keys()))
+    parser.add_argument('--training-datasets', nargs='+', type=str, default=list(
+        ALL_TRAINING_MINICHECK_DATASETS.keys()), choices=list(ALL_TRAINING_MINICHECK_DATASETS.keys()))
     parser.add_argument('--data-path', type=str, required=True)
     parser.add_argument('--max-samples-per-dataset', type=int, default=500000)
     parser.add_argument('--do-mlm', type=bool, default=False)
     parser.add_argument('--ckpt-path', type=str, default="")
-   
+
     args = parser.parse_args()
     print(args)
 
@@ -222,4 +227,3 @@ if __name__ == "__main__":
     }
 
     train(datasets, args)
-

@@ -3,7 +3,7 @@ import logging
 import random
 from typing import Optional, Sized, List, Dict
 import numpy as np
-
+from .utils import INSTRUCTION_TEMPLATE
 import torch
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader
@@ -16,15 +16,16 @@ from torch.utils.data import Dataset, Sampler
 import os
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
+
 class AlignmentDataset(Dataset):
     # TODO: passing a dataset config class instead of many kv pairs.
     def __init__(
-            self, dataset : List[Dict], 
-            tokenizer : AutoTokenizer, 
-            model_name : str ='bert-base-uncased', 
-            need_mlm : bool = False, 
-            tokenizer_max_length=2048,#800,#512,
-            ) -> None:
+            self, dataset: List[Dict],
+            tokenizer: AutoTokenizer,
+            model_name: str = 'bert-base-uncased',
+            need_mlm: bool = False,
+            tokenizer_max_length=2048,  # 800,#512,
+    ) -> None:
         super().__init__()
         self.tokenizer = tokenizer
         self.tokenizer_max_length = tokenizer_max_length
@@ -34,58 +35,49 @@ class AlignmentDataset(Dataset):
 
         self.dataset = dataset
 
-        self.need_mlm = need_mlm # deprecated
+        self.need_mlm = need_mlm  # deprecated
 
         self.self_align_prob = 0.95
 
         # self.prompt = "Determine if the hypothesis is true given the premise?\n\nPremise: {Premise}\n\nHypothesis: {Hypothesis}\n\n Options: {Options}\n\n[CLS]"
         self.prompt = "Determine if the hypothesis is true given the premise?\n\nPremise: {Premise}\n\nHypothesis: {Hypothesis}\n\n[CLS]"
-        
+
         self.dataset_type_dict_init()
-    
+
     def encode(self, text_a, text_b, options):
-        if "phi-cls" in self.model_name:
-            assert isinstance(text_a, str)
-            assert isinstance(text_b, str)
-            # merged_input = f"{text_a} [SEP] {text_b}"
-            options_str = (", ").join(options)
-            # merged_input = self.prompt.format(**{"Premise":text_a, "Hypothesis":text_b, "Options":options_str})
-            merged_input = self.prompt.format(**{"Premise":text_a, "Hypothesis":text_b, "Options":options_str})
-            try:
-                output = self.tokenizer(merged_input, truncation='only_first', padding='max_length', max_length=self.tokenizer_max_length)
-            except:
-                logging.warning('text_b too long...')
-                output = self.tokenizer(merged_input, truncation=True, padding='max_length', max_length=self.tokenizer_max_length)
-        elif "t5"  or "phi2" in self.model_name.lower():
+        if "t5" in self.model_name.lower() or "deberta" in self.model_name.lower():
             # text = self.tokenizer.eos_token.join([text_a, text_b])
 
             # prompt = f"Read the following paragraph and determine if the hypothesis is true:\n\n{text_a}\n\nHypothesis: {text_b}n\nOPTIONS:\n- true\n- false"
-            prompt = f"{text_a}\n\nChoose your answer: based on the paragraph above can we conclude that \"{text_b}\"?\n\nOPTIONS:\n- Yes\n-No\nI think the answer is "
+            prompt = INSTRUCTION_TEMPLATE.format(text_a=text_a, text_b=text_b)
+            # prompt = f"{text_a}\n\nChoose your answer: based on the paragraph above can we conclude that \"{text_b}\"?\n\nOPTIONS:\n- Yes\n-No\nI think the answer is "
             # prompt = f"{text_a}\n\nBased on that paragraph can we conclude that this sentence is true?\n{text_b}\n\nOPTIONS:\n- Yes\n- No\n"
             # prompt = f"{text_a}\n\nCan we draw the following conclusion?\n{text_b}\n\nOPTIONS:\n- yes\n- no"
             try:
                 output = self.tokenizer(
-                    prompt, 
-                    truncation='only_first', 
-                    padding='max_length', 
-                    return_tensors="pt", 
+                    prompt,
+                    truncation='only_first',
+                    padding='max_length',
+                    return_tensors="pt",
                     max_length=self.tokenizer_max_length
-                ) 
+                )
             except:
                 logging.warning('text_b too long...')
                 output = self.tokenizer(
-                    prompt, 
-                    truncation=True, 
-                    padding='max_length', 
-                    return_tensors="pt", 
+                    prompt,
+                    truncation=True,
+                    padding='max_length',
+                    return_tensors="pt",
                     max_length=self.tokenizer_max_length
                 )
         else:
             try:
-                output = self.tokenizer(text_a, text_b, truncation='only_first', padding='max_length', max_length=self.tokenizer_max_length, return_tensors="pt")
+                output = self.tokenizer(text_a, text_b, truncation='only_first', padding='max_length',
+                                        max_length=self.tokenizer_max_length, return_tensors="pt")
             except:
                 logging.warning('text_b too long...')
-                output = self.tokenizer(text_a, text_b, truncation=True, padding='max_length', max_length=self.tokenizer_max_length, return_tensors="pt")
+                output = self.tokenizer(text_a, text_b, truncation=True, padding='max_length',
+                                        max_length=self.tokenizer_max_length, return_tensors="pt")
         return output
 
     def dataset_type_dict_init(self):
@@ -94,7 +86,7 @@ class AlignmentDataset(Dataset):
                 self.dataset_type_dict[item['task']].append(i)
             except:
                 self.dataset_type_dict[item['task']] = [i]
-                
+
     def random_word(self, tokens):
         """
         Masking some random tokens for Language Model task with probabilities as in the original BERT paper.
@@ -103,14 +95,14 @@ class AlignmentDataset(Dataset):
         :return: (list of str, list of int), masked tokens and related labels for LM prediction
         NOT IN USE FOR NOW AND DISABLED BY DEFAULT.
         """
-        if not self.need_mlm: # disable masked language modeling
+        if not self.need_mlm:  # disable masked language modeling
             return tokens, [-100] * len(tokens)
 
         output_label = []
 
         for i, token in enumerate(tokens):
             if token == self.tokenizer.pad_token_id:
-                output_label.append(-100) # PAD tokens ignore
+                output_label.append(-100)  # PAD tokens ignore
                 continue
             prob = random.random()
             # mask token with 15% probability
@@ -123,7 +115,8 @@ class AlignmentDataset(Dataset):
 
                 # 10% randomly change token to random token
                 elif prob < 0.9:
-                    tokens[i] = random.choice(list(range(self.tokenizer.vocab_size)))
+                    tokens[i] = random.choice(
+                        list(range(self.tokenizer.vocab_size)))
 
                 # -> rest 10% randomly keep current token
 
@@ -134,21 +127,22 @@ class AlignmentDataset(Dataset):
                 output_label.append(-100)
 
         return tokens, output_label
-    
+
     def process_nli(self, index):
         text_a = self.dataset[index]['text_a']
         text_b = self.dataset[index]['text_b'][0]
         tri_label = self.dataset[index]['orig_label'] if self.dataset[index]['orig_label'] != -1 else 1
 
         rand_self_align = random.random()
-        if rand_self_align > self.self_align_prob: ### random self alignment
+        if rand_self_align > self.self_align_prob:  # random self alignment
             text_b = self.dataset[index]['text_a']
             tri_label = 0
         # elif self.dataset[index]['orig_label'] == 2 and random.random() > 0.95:
         #     text_a = self.dataset[index]['text_b'][0]
         #     text_b = self.dataset[index]['text_a']
 
-        tokenized_pair = self.encode(text_a, text_b, options=["entailment", "neutral", "contradiction"])
+        tokenized_pair = self.encode(text_a, text_b, options=[
+                                     "entailment", "neutral", "contradiction"])
         # try:
         #     tokenized_pair = self.tokenizer(text_a, text_b, padding='max_length', max_length=self.tokenizer_max_length, truncation='only_first')
         # except:
@@ -156,15 +150,16 @@ class AlignmentDataset(Dataset):
         #     tokenized_pair = self.tokenizer(text_a, text_b, padding='max_length', max_length=self.tokenizer_max_length, truncation=True)
         input_ids, mlm_labels = self.random_word(tokenized_pair['input_ids'])
         return (
-            torch.tensor(input_ids), 
-            torch.tensor(tokenized_pair['attention_mask']), 
-            torch.tensor(tokenized_pair['token_type_ids']) if 'token_type_ids' in tokenized_pair.keys() else None, 
-            torch.tensor(-100), # align label, 2 class
-            torch.tensor(mlm_labels), # mlm label
-            torch.tensor(tri_label), # tri label, 3 class
-            torch.tensor(-100.0) # reg label, float
+            torch.tensor(input_ids),
+            torch.tensor(tokenized_pair['attention_mask']),
+            torch.tensor(tokenized_pair['token_type_ids']
+                         ) if 'token_type_ids' in tokenized_pair.keys() else None,
+            torch.tensor(-100),  # align label, 2 class
+            torch.tensor(mlm_labels),  # mlm label
+            torch.tensor(tri_label),  # tri label, 3 class
+            torch.tensor(-100.0)  # reg label, float
         )
-    
+
     def process_nli_to_bin(self, index):
         text_a = self.dataset[index]['text_a']
         text_b = self.dataset[index]['text_b'][0]
@@ -172,20 +167,21 @@ class AlignmentDataset(Dataset):
         bin_label = 1 if tri_label == 0 else 0
 
         rand_self_align = random.random()
-        if rand_self_align > self.self_align_prob: ### random self alignment
+        if rand_self_align > self.self_align_prob:  # random self alignment
             text_b = self.dataset[index]['text_a']
             bin_label = 1
 
         tokenized_pair = self.encode(text_a, text_b, options=["Yes, No"])
         input_ids, mlm_labels = self.random_word(tokenized_pair['input_ids'])
         return (
-            torch.tensor(input_ids), 
-            torch.tensor(tokenized_pair['attention_mask']), 
-            torch.tensor(tokenized_pair['token_type_ids']) if 'token_type_ids' in tokenized_pair.keys() else None, 
-            torch.tensor(bin_label), # align label, 2 class
-            torch.tensor(mlm_labels), # mlm label
-            torch.tensor(-100), # tri label, 3 class
-            torch.tensor(-100.0) # reg label, float
+            torch.tensor(input_ids),
+            torch.tensor(tokenized_pair['attention_mask']),
+            torch.tensor(tokenized_pair['token_type_ids']
+                         ) if 'token_type_ids' in tokenized_pair.keys() else None,
+            torch.tensor(bin_label),  # align label, 2 class
+            torch.tensor(mlm_labels),  # mlm label
+            torch.tensor(-100),  # tri label, 3 class
+            torch.tensor(-100.0)  # reg label, float
         )
 
     def process_paraphrase(self, index):
@@ -194,7 +190,7 @@ class AlignmentDataset(Dataset):
         label = self.dataset[index]['orig_label']
 
         rand_self_align = random.random()
-        if rand_self_align > self.self_align_prob: ### random self alignment
+        if rand_self_align > self.self_align_prob:  # random self alignment
             text_b = self.dataset[index]['text_a']
             label = 1
         # elif random.random() > 0.95:
@@ -209,19 +205,21 @@ class AlignmentDataset(Dataset):
         #     tokenized_pair = self.tokenizer(text_a, text_b, padding='max_length', max_length=self.tokenizer_max_length, truncation=True)
         input_ids, mlm_labels = self.random_word(tokenized_pair['input_ids'])
         return (
-            torch.tensor(input_ids), 
-            torch.tensor(tokenized_pair['attention_mask']), 
-            torch.tensor(tokenized_pair['token_type_ids']) if 'token_type_ids' in tokenized_pair.keys() else None, 
-            torch.tensor(label), # align label, 2 class
-            torch.tensor(mlm_labels), # mlm label
-            torch.tensor(-100), # tri label, 3 class
-            torch.tensor(-100.0) # reg label, float
+            torch.tensor(input_ids),
+            torch.tensor(tokenized_pair['attention_mask']),
+            torch.tensor(tokenized_pair['token_type_ids']
+                         ) if 'token_type_ids' in tokenized_pair.keys() else None,
+            torch.tensor(label),  # align label, 2 class
+            torch.tensor(mlm_labels),  # mlm label
+            torch.tensor(-100),  # tri label, 3 class
+            torch.tensor(-100.0)  # reg label, float
         )
-    
+
     def process_qa(self, index):
         text_a = self.dataset[index]['text_a']
         if len(self.dataset[index]['text_c']) > 0:
-            text_b = self.dataset[index]['text_b'][0] + ' ' + self.dataset[index]['text_c'][0]
+            text_b = self.dataset[index]['text_b'][0] + \
+                ' ' + self.dataset[index]['text_c'][0]
         else:
             text_b = self.dataset[index]['text_b'][0]
         label = self.dataset[index]['orig_label']
@@ -234,19 +232,21 @@ class AlignmentDataset(Dataset):
         #     tokenized_pair = self.tokenizer(text_a, text_b, padding='max_length', max_length=self.tokenizer_max_length, truncation=True)
         input_ids, mlm_labels = self.random_word(tokenized_pair['input_ids'])
         return (
-            torch.tensor(input_ids), 
-            torch.tensor(tokenized_pair['attention_mask']), 
-            torch.tensor(tokenized_pair['token_type_ids']) if 'token_type_ids' in tokenized_pair.keys() else None, 
-            torch.tensor(label), # align label, 2 class
-            torch.tensor(mlm_labels), # mlm label
-            torch.tensor(-100), # tri label, 3 class
-            torch.tensor(-100.0) # reg label, float
+            torch.tensor(input_ids),
+            torch.tensor(tokenized_pair['attention_mask']),
+            torch.tensor(tokenized_pair['token_type_ids']
+                         ) if 'token_type_ids' in tokenized_pair.keys() else None,
+            torch.tensor(label),  # align label, 2 class
+            torch.tensor(mlm_labels),  # mlm label
+            torch.tensor(-100),  # tri label, 3 class
+            torch.tensor(-100.0)  # reg label, float
         )
-    
+
     def process_coreference(self, index):
         text_a = self.dataset[index]['text_a']
         if len(self.dataset[index]['text_c']) > 0:
-            text_b = self.dataset[index]['text_b'][0] + ' ' + self.dataset[index]['text_c'][0]
+            text_b = self.dataset[index]['text_b'][0] + \
+                ' ' + self.dataset[index]['text_c'][0]
         else:
             text_b = self.dataset[index]['text_b'][0]
         label = self.dataset[index]['orig_label']
@@ -259,15 +259,16 @@ class AlignmentDataset(Dataset):
         #     tokenized_pair = self.tokenizer(text_a, text_b, padding='max_length', max_length=self.tokenizer_max_length, truncation=True)
         input_ids, mlm_labels = self.random_word(tokenized_pair['input_ids'])
         return (
-            torch.tensor(input_ids), 
-            torch.tensor(tokenized_pair['attention_mask']), 
-            torch.tensor(tokenized_pair['token_type_ids']) if 'token_type_ids' in tokenized_pair.keys() else None, 
-            torch.tensor(label), # align label, 2 class
-            torch.tensor(mlm_labels), # mlm label
-            torch.tensor(-100), # tri label, 3 class
-            torch.tensor(-100.0) # reg label, float
+            torch.tensor(input_ids),
+            torch.tensor(tokenized_pair['attention_mask']),
+            torch.tensor(tokenized_pair['token_type_ids']
+                         ) if 'token_type_ids' in tokenized_pair.keys() else None,
+            torch.tensor(label),  # align label, 2 class
+            torch.tensor(mlm_labels),  # mlm label
+            torch.tensor(-100),  # tri label, 3 class
+            torch.tensor(-100.0)  # reg label, float
         )
-    
+
     def process_bin_nli(self, index):
         text_a = self.dataset[index]['text_a']
         text_b = self.dataset[index]['text_b'][0]
@@ -281,13 +282,14 @@ class AlignmentDataset(Dataset):
         #     tokenized_pair = self.tokenizer(text_a, text_b, padding='max_length', max_length=self.tokenizer_max_length, truncation=True)
         input_ids, mlm_labels = self.random_word(tokenized_pair['input_ids'])
         return (
-            torch.tensor(input_ids), 
-            torch.tensor(tokenized_pair['attention_mask']), 
-            torch.tensor(tokenized_pair['token_type_ids']) if 'token_type_ids' in tokenized_pair.keys() else None, 
-            torch.tensor(label), # align label, 2 class
-            torch.tensor(mlm_labels), # mlm label
-            torch.tensor(-100), # tri label, 3 class
-            torch.tensor(-100.0) # reg label, float
+            torch.tensor(input_ids),
+            torch.tensor(tokenized_pair['attention_mask']),
+            torch.tensor(tokenized_pair['token_type_ids']
+                         ) if 'token_type_ids' in tokenized_pair.keys() else None,
+            torch.tensor(label),  # align label, 2 class
+            torch.tensor(mlm_labels),  # mlm label
+            torch.tensor(-100),  # tri label, 3 class
+            torch.tensor(-100.0)  # reg label, float
         )
 
     def process_fact_checking(self, index):
@@ -296,14 +298,15 @@ class AlignmentDataset(Dataset):
         tri_label = self.dataset[index]['orig_label'] if self.dataset[index]['orig_label'] != -1 else 1
 
         rand_self_align = random.random()
-        if rand_self_align > self.self_align_prob: ### random self alignment
+        if rand_self_align > self.self_align_prob:  # random self alignment
             text_b = self.dataset[index]['text_a']
             tri_label = 0
         # elif self.dataset[index]['orig_label'] == 2 and random.random() > 0.95:
         #     text_a = self.dataset[index]['text_b'][0]
         #     text_b = self.dataset[index]['text_a']
 
-        tokenized_pair = self.encode(text_a, text_b, options=["entailment", "neutral", "contradiction"])
+        tokenized_pair = self.encode(text_a, text_b, options=[
+                                     "entailment", "neutral", "contradiction"])
         # try:
         #     tokenized_pair = self.tokenizer(text_a, text_b, padding='max_length', max_length=self.tokenizer_max_length, truncation='only_first')
         # except:
@@ -311,13 +314,14 @@ class AlignmentDataset(Dataset):
         #     tokenized_pair = self.tokenizer(text_a, text_b, padding='max_length', max_length=self.tokenizer_max_length, truncation=True)
         input_ids, mlm_labels = self.random_word(tokenized_pair['input_ids'])
         return (
-            torch.tensor(input_ids), 
-            torch.tensor(tokenized_pair['attention_mask']), 
-            torch.tensor(tokenized_pair['token_type_ids']) if 'token_type_ids' in tokenized_pair.keys() else None, 
-            torch.tensor(-100), # align label, 2 class
-            torch.tensor(mlm_labels), # mlm label
-            torch.tensor(tri_label), # tri label, 3 class
-            torch.tensor(-100.0) # reg label, float
+            torch.tensor(input_ids),
+            torch.tensor(tokenized_pair['attention_mask']),
+            torch.tensor(tokenized_pair['token_type_ids']
+                         ) if 'token_type_ids' in tokenized_pair.keys() else None,
+            torch.tensor(-100),  # align label, 2 class
+            torch.tensor(mlm_labels),  # mlm label
+            torch.tensor(tri_label),  # tri label, 3 class
+            torch.tensor(-100.0)  # reg label, float
         )
 
     def process_fact_checking_to_bin(self, index):
@@ -328,7 +332,7 @@ class AlignmentDataset(Dataset):
         bin_label = 1 if tri_label == 0 else 0
 
         rand_self_align = random.random()
-        if rand_self_align > 0.95: ### random self alignment
+        if rand_self_align > 0.95:  # random self alignment
             text_b = self.dataset[index]['text_a']
             bin_label = 1
 
@@ -336,15 +340,16 @@ class AlignmentDataset(Dataset):
 
         input_ids, mlm_labels = self.random_word(tokenized_pair['input_ids'])
         return (
-            torch.tensor(input_ids), 
-            torch.tensor(tokenized_pair['attention_mask']), 
-            torch.tensor(tokenized_pair['token_type_ids']) if 'token_type_ids' in tokenized_pair.keys() else None, 
-            torch.tensor(bin_label), # align label, 2 class
-            torch.tensor(mlm_labels), # mlm label
-            torch.tensor(-100), # tri label, 3 class
-            torch.tensor(-100.0) # reg label, float
+            torch.tensor(input_ids),
+            torch.tensor(tokenized_pair['attention_mask']),
+            torch.tensor(tokenized_pair['token_type_ids']
+                         ) if 'token_type_ids' in tokenized_pair.keys() else None,
+            torch.tensor(bin_label),  # align label, 2 class
+            torch.tensor(mlm_labels),  # mlm label
+            torch.tensor(-100),  # tri label, 3 class
+            torch.tensor(-100.0)  # reg label, float
         )
-    
+
     def process_bin_grounding(self, index):
         text_a = self.dataset[index]['text_a']
         text_b = self.dataset[index]['text_b'][0]
@@ -358,13 +363,14 @@ class AlignmentDataset(Dataset):
         #     tokenized_pair = self.tokenizer(text_a, text_b, padding='max_length', max_length=self.tokenizer_max_length, truncation=True)
         input_ids, mlm_labels = self.random_word(tokenized_pair['input_ids'])
         return (
-            torch.tensor(input_ids), 
-            torch.tensor(tokenized_pair['attention_mask']), 
-            torch.tensor(tokenized_pair['token_type_ids']) if 'token_type_ids' in tokenized_pair.keys() else None, 
-            torch.tensor(label), # align label, 2 class
-            torch.tensor(mlm_labels), # mlm label
-            torch.tensor(-100), # tri label, 3 class
-            torch.tensor(-100.0) # reg label, float
+            torch.tensor(input_ids),
+            torch.tensor(tokenized_pair['attention_mask']),
+            torch.tensor(tokenized_pair['token_type_ids']
+                         ) if 'token_type_ids' in tokenized_pair.keys() else None,
+            torch.tensor(label),  # align label, 2 class
+            torch.tensor(mlm_labels),  # mlm label
+            torch.tensor(-100),  # tri label, 3 class
+            torch.tensor(-100.0)  # reg label, float
         )
 
     def process_tri_grounding(self, index):
@@ -372,7 +378,8 @@ class AlignmentDataset(Dataset):
         text_b = self.dataset[index]['text_b'][0]
         tri_label = self.dataset[index]['orig_label'] if self.dataset[index]['orig_label'] != -1 else 1
 
-        tokenized_pair = self.encode(text_a, text_b, options=["entailment", "neutral", "contradiction"])
+        tokenized_pair = self.encode(text_a, text_b, options=[
+                                     "entailment", "neutral", "contradiction"])
         # try:
         #     tokenized_pair = self.tokenizer(text_a, text_b, padding='max_length', max_length=self.tokenizer_max_length, truncation='only_first')
         # except:
@@ -380,28 +387,32 @@ class AlignmentDataset(Dataset):
         #     tokenized_pair = self.tokenizer(text_a, text_b, padding='max_length', max_length=self.tokenizer_max_length, truncation=True)
         input_ids, mlm_labels = self.random_word(tokenized_pair['input_ids'])
         return (
-            torch.tensor(input_ids), 
-            torch.tensor(tokenized_pair['attention_mask']), 
-            torch.tensor(tokenized_pair['token_type_ids']) if 'token_type_ids' in tokenized_pair.keys() else None, 
-            torch.tensor(-100), # align label, 2 class
-            torch.tensor(mlm_labels), # mlm label
-            torch.tensor(tri_label), # tri label, 3 class
-            torch.tensor(-100.0) # reg label, float
+            torch.tensor(input_ids),
+            torch.tensor(tokenized_pair['attention_mask']),
+            torch.tensor(tokenized_pair['token_type_ids']
+                         ) if 'token_type_ids' in tokenized_pair.keys() else None,
+            torch.tensor(-100),  # align label, 2 class
+            torch.tensor(mlm_labels),  # mlm label
+            torch.tensor(tri_label),  # tri label, 3 class
+            torch.tensor(-100.0)  # reg label, float
         )
 
     def process_summarization(self, index):
         text_a = self.dataset[index]['text_a']
-        if random.random() > 0.5: # this will be a positive pair
-            random_pos_sample_id = random.randint(0, len(self.dataset[index]['text_b'])-1)
+        if random.random() > 0.5:  # this will be a positive pair
+            random_pos_sample_id = random.randint(
+                0, len(self.dataset[index]['text_b'])-1)
             text_b = self.dataset[index]['text_b'][random_pos_sample_id]
             label = 1
-        else: # this will be a negative pair
+        else:  # this will be a negative pair
             label = 0
             if len(self.dataset[index]['text_c']) > 0:
-                random_neg_sample_id = random.randint(0, len(self.dataset[index]['text_c'])-1)
+                random_neg_sample_id = random.randint(
+                    0, len(self.dataset[index]['text_c'])-1)
                 text_b = self.dataset[index]['text_c'][random_neg_sample_id]
             else:
-                random_choose_from_entire_dataset_text_b = random.choice(self.dataset_type_dict['summarization'])
+                random_choose_from_entire_dataset_text_b = random.choice(
+                    self.dataset_type_dict['summarization'])
                 text_b = self.dataset[random_choose_from_entire_dataset_text_b]['text_b'][0]
 
         tokenized_pair = self.encode(text_a, text_b, options=["Yes, No"])
@@ -411,29 +422,32 @@ class AlignmentDataset(Dataset):
         #     logging.warning('text_b too long...')
         #     tokenized_pair = self.tokenizer(text_a, text_b, padding='max_length', max_length=self.tokenizer_max_length, truncation=True)
         input_ids, mlm_labels = self.random_word(tokenized_pair['input_ids'])
-        
+
         return (
-            torch.tensor(input_ids), 
-            torch.tensor(tokenized_pair['attention_mask']), 
-            torch.tensor(tokenized_pair['token_type_ids']) if 'token_type_ids' in tokenized_pair.keys() else None, 
-            torch.tensor(label), # align label, 2 class
-            torch.tensor(mlm_labels), # mlm label
-            torch.tensor(-100), # tri label, 3 class
-            torch.tensor(-100.0) # reg label, float
+            torch.tensor(input_ids),
+            torch.tensor(tokenized_pair['attention_mask']),
+            torch.tensor(tokenized_pair['token_type_ids']
+                         ) if 'token_type_ids' in tokenized_pair.keys() else None,
+            torch.tensor(label),  # align label, 2 class
+            torch.tensor(mlm_labels),  # mlm label
+            torch.tensor(-100),  # tri label, 3 class
+            torch.tensor(-100.0)  # reg label, float
         )
-    
+
     def process_multiple_choice_qa(self, index):
         text_a = self.dataset[index]['text_a']
-        if random.random() > 0.5: # this will be a positive pair
+        if random.random() > 0.5:  # this will be a positive pair
             text_b = self.dataset[index]['text_b'][0]
             label = 1
-        else: # this will be a negative pair
+        else:  # this will be a negative pair
             label = 0
             if len(self.dataset[index]['text_c']) > 0:
-                random_neg_sample_id = random.randint(0, len(self.dataset[index]['text_c'])-1)
+                random_neg_sample_id = random.randint(
+                    0, len(self.dataset[index]['text_c'])-1)
                 text_b = self.dataset[index]['text_c'][random_neg_sample_id]
             else:
-                random_choose_from_entire_dataset_text_b = random.choice(self.dataset_type_dict['multiple_choice_qa'])
+                random_choose_from_entire_dataset_text_b = random.choice(
+                    self.dataset_type_dict['multiple_choice_qa'])
                 text_b = self.dataset[random_choose_from_entire_dataset_text_b]['text_b'][0]
 
         tokenized_pair = self.encode(text_a, text_b, options=["Yes, No"])
@@ -443,30 +457,34 @@ class AlignmentDataset(Dataset):
         #     logging.warning('text_b too long...')
         #     tokenized_pair = self.tokenizer(text_a, text_b, padding='max_length', max_length=self.tokenizer_max_length, truncation=True)
         input_ids, mlm_labels = self.random_word(tokenized_pair['input_ids'])
-        
+
         return (
-            torch.tensor(input_ids), 
-            torch.tensor(tokenized_pair['attention_mask']), 
-            torch.tensor(tokenized_pair['token_type_ids']) if 'token_type_ids' in tokenized_pair.keys() else None, 
-            torch.tensor(label), # align label, 2 class
-            torch.tensor(mlm_labels), # mlm label
-            torch.tensor(-100), # tri label, 3 class
-            torch.tensor(-100.0) # reg label, float
+            torch.tensor(input_ids),
+            torch.tensor(tokenized_pair['attention_mask']),
+            torch.tensor(tokenized_pair['token_type_ids']
+                         ) if 'token_type_ids' in tokenized_pair.keys() else None,
+            torch.tensor(label),  # align label, 2 class
+            torch.tensor(mlm_labels),  # mlm label
+            torch.tensor(-100),  # tri label, 3 class
+            torch.tensor(-100.0)  # reg label, float
         )
-    
+
     def process_extractive_qa(self, index):
         text_a = self.dataset[index]['text_a']
-        if random.random() > 0.5: # this will be a positive pair
-            random_pos_sample_id = random.randint(0, len(self.dataset[index]['text_b'])-1)
+        if random.random() > 0.5:  # this will be a positive pair
+            random_pos_sample_id = random.randint(
+                0, len(self.dataset[index]['text_b'])-1)
             text_b = self.dataset[index]['text_b'][random_pos_sample_id]
             label = 1
-        else: # this will be a negative pair
+        else:  # this will be a negative pair
             label = 0
             if len(self.dataset[index]['text_c']) > 0:
-                random_neg_sample_id = random.randint(0, len(self.dataset[index]['text_c'])-1)
+                random_neg_sample_id = random.randint(
+                    0, len(self.dataset[index]['text_c'])-1)
                 text_b = self.dataset[index]['text_c'][random_neg_sample_id]
             else:
-                random_choose_from_entire_dataset_text_b = random.choice(self.dataset_type_dict['extractive_qa'])
+                random_choose_from_entire_dataset_text_b = random.choice(
+                    self.dataset_type_dict['extractive_qa'])
                 text_b = self.dataset[random_choose_from_entire_dataset_text_b]['text_b'][0]
 
         tokenized_pair = self.encode(text_a, text_b, options=["Yes, No"])
@@ -476,20 +494,22 @@ class AlignmentDataset(Dataset):
         #     logging.warning('text_b too long...')
         #     tokenized_pair = self.tokenizer(text_a, text_b, padding='max_length', max_length=self.tokenizer_max_length, truncation=True)
         input_ids, mlm_labels = self.random_word(tokenized_pair['input_ids'])
-        
+
         return (
-            torch.tensor(input_ids), 
-            torch.tensor(tokenized_pair['attention_mask']), 
-            torch.tensor(tokenized_pair['token_type_ids']) if 'token_type_ids' in tokenized_pair.keys() else None, 
-            torch.tensor(label), # align label, 2 class
-            torch.tensor(mlm_labels), # mlm label
-            torch.tensor(-100), # tri label, 3 class
-            torch.tensor(-100.0) # reg label, float
+            torch.tensor(input_ids),
+            torch.tensor(tokenized_pair['attention_mask']),
+            torch.tensor(tokenized_pair['token_type_ids']
+                         ) if 'token_type_ids' in tokenized_pair.keys() else None,
+            torch.tensor(label),  # align label, 2 class
+            torch.tensor(mlm_labels),  # mlm label
+            torch.tensor(-100),  # tri label, 3 class
+            torch.tensor(-100.0)  # reg label, float
         )
 
     def process_ir(self, index):
         text_a = self.dataset[index]['text_a']
-        text_b = self.dataset[index]['text_b'][random.randint(0, len(self.dataset[index]['text_b'])-1)]
+        text_b = self.dataset[index]['text_b'][random.randint(
+            0, len(self.dataset[index]['text_b'])-1)]
         label = self.dataset[index]['orig_label']
 
         tokenized_pair = self.encode(text_a, text_b, options=["Yes, No"])
@@ -499,17 +519,18 @@ class AlignmentDataset(Dataset):
         #     logging.warning('text_b too long...')
         #     tokenized_pair = self.tokenizer(text_a, text_b, padding='max_length', max_length=self.tokenizer_max_length, truncation=True)
         input_ids, mlm_labels = self.random_word(tokenized_pair['input_ids'])
-        
+
         return (
-            torch.tensor(input_ids), 
-            torch.tensor(tokenized_pair['attention_mask']), 
-            torch.tensor(tokenized_pair['token_type_ids']) if 'token_type_ids' in tokenized_pair.keys() else None, 
-            torch.tensor(label), # align label, 2 class
-            torch.tensor(mlm_labels), # mlm label
-            torch.tensor(-100), # tri label, 3 class
-            torch.tensor(-100.0) # reg label, float
+            torch.tensor(input_ids),
+            torch.tensor(tokenized_pair['attention_mask']),
+            torch.tensor(tokenized_pair['token_type_ids']
+                         ) if 'token_type_ids' in tokenized_pair.keys() else None,
+            torch.tensor(label),  # align label, 2 class
+            torch.tensor(mlm_labels),  # mlm label
+            torch.tensor(-100),  # tri label, 3 class
+            torch.tensor(-100.0)  # reg label, float
         )
-    
+
     def process_wmt(self, index):
         text_a = self.dataset[index]['text_a']
         text_b = self.dataset[index]['text_b'][0]
@@ -522,17 +543,18 @@ class AlignmentDataset(Dataset):
         #     logging.warning('text_b too long...')
         #     tokenized_pair = self.tokenizer(text_a, text_b, padding='max_length', max_length=self.tokenizer_max_length, truncation=True)
         input_ids, mlm_labels = self.random_word(tokenized_pair['input_ids'])
-        
+
         return (
-            torch.tensor(input_ids), 
-            torch.tensor(tokenized_pair['attention_mask']), 
-            torch.tensor(tokenized_pair['token_type_ids']) if 'token_type_ids' in tokenized_pair.keys() else None, 
-            torch.tensor(-100), # align label, 2 class
-            torch.tensor(mlm_labels), # mlm label
-            torch.tensor(-100), # tri label, 3 class
-            torch.tensor(reg_label) # reg label, float
+            torch.tensor(input_ids),
+            torch.tensor(tokenized_pair['attention_mask']),
+            torch.tensor(tokenized_pair['token_type_ids']
+                         ) if 'token_type_ids' in tokenized_pair.keys() else None,
+            torch.tensor(-100),  # align label, 2 class
+            torch.tensor(mlm_labels),  # mlm label
+            torch.tensor(-100),  # tri label, 3 class
+            torch.tensor(reg_label)  # reg label, float
         )
-    
+
     def process_sts(self, index):
         text_a = self.dataset[index]['text_a']
         text_b = self.dataset[index]['text_b'][0]
@@ -545,15 +567,16 @@ class AlignmentDataset(Dataset):
         #     logging.warning('text_b too long...')
         #     tokenized_pair = self.tokenizer(text_a, text_b, padding='max_length', max_length=self.tokenizer_max_length, truncation=True)
         input_ids, mlm_labels = self.random_word(tokenized_pair['input_ids'])
-        
+
         return (
-            torch.tensor(input_ids), 
-            torch.tensor(tokenized_pair['attention_mask']), 
-            torch.tensor(tokenized_pair['token_type_ids']) if 'token_type_ids' in tokenized_pair.keys() else None, 
-            torch.tensor(-100), # align label, 2 class
-            torch.tensor(mlm_labels), # mlm label
-            torch.tensor(-100), # tri label, 3 class
-            torch.tensor(reg_label) # reg label, float
+            torch.tensor(input_ids),
+            torch.tensor(tokenized_pair['attention_mask']),
+            torch.tensor(tokenized_pair['token_type_ids']
+                         ) if 'token_type_ids' in tokenized_pair.keys() else None,
+            torch.tensor(-100),  # align label, 2 class
+            torch.tensor(mlm_labels),  # mlm label
+            torch.tensor(-100),  # tri label, 3 class
+            torch.tensor(reg_label)  # reg label, float
         )
 
     def process_ctc(self, index):
@@ -568,15 +591,16 @@ class AlignmentDataset(Dataset):
         #     logging.warning('text_b too long...')
         #     tokenized_pair = self.tokenizer(text_a, text_b, padding='max_length', max_length=self.tokenizer_max_length, truncation=True)
         input_ids, mlm_labels = self.random_word(tokenized_pair['input_ids'])
-        
+
         return (
-            torch.tensor(input_ids), 
-            torch.tensor(tokenized_pair['attention_mask']), 
-            torch.tensor(tokenized_pair['token_type_ids']) if 'token_type_ids' in tokenized_pair.keys() else None, 
-            torch.tensor(-100), # align label, 2 class
-            torch.tensor(mlm_labels), # mlm label
-            torch.tensor(-100), # tri label, 3 class
-            torch.tensor(reg_label) # reg label, float
+            torch.tensor(input_ids),
+            torch.tensor(tokenized_pair['attention_mask']),
+            torch.tensor(tokenized_pair['token_type_ids']
+                         ) if 'token_type_ids' in tokenized_pair.keys() else None,
+            torch.tensor(-100),  # align label, 2 class
+            torch.tensor(mlm_labels),  # mlm label
+            torch.tensor(-100),  # tri label, 3 class
+            torch.tensor(reg_label)  # reg label, float
         )
 
     def get_task_processor(self, task):
@@ -606,20 +630,21 @@ class AlignmentDataset(Dataset):
             return self.process_qa
         elif task == 'coreference':
             return self.process_coreference
-        elif task  == 'ir':
+        elif task == 'ir':
             return self.process_ir
         elif task == 'sts':
             return self.process_sts
-        elif task  == 'ctc':
+        elif task == 'ctc':
             return self.process_ctc
-        elif task  == 'wmt':
+        elif task == 'wmt':
             return self.process_wmt
 
     def __getitem__(self, index):
         task = self.dataset[index]['task']
         task_processor = self.get_task_processor(task)
-        input_ids, attention_mask, token_type_ids, align_label, mlm_labels, tri_label, reg_label = task_processor(index)
- 
+        input_ids, attention_mask, token_type_ids, align_label, mlm_labels, tri_label, reg_label = task_processor(
+            index)
+
         if token_type_ids is not None:
             return {
                 'input_ids': input_ids,
@@ -639,10 +664,10 @@ class AlignmentDataset(Dataset):
                 'tri_label': tri_label,
                 'reg_label': reg_label
             }
-        
 
     def __len__(self):
         return len(self.dataset)
+
 
 class PropSampler(Sampler[int]):
     def __init__(self, data_source: Optional[Sized]) -> None:
@@ -657,29 +682,32 @@ class PropSampler(Sampler[int]):
             else:
                 self.data_positions[example['dataset_name']] = [i]
         self.all_dataset_names = list(self.data_positions.keys())
-        self.dataset_lengths = {each:len(self.data_positions[each]) for each in self.data_positions}
+        self.dataset_lengths = {
+            each: len(self.data_positions[each]) for each in self.data_positions}
 
-        self.dataset_props = {each: min(self.dataset_lengths[each], self.K) for each in self.dataset_lengths}
-        self.dataset_props_sum = sum([self.dataset_props[each] for each in self.dataset_props])
-        
-
+        self.dataset_props = {
+            each: min(self.dataset_lengths[each], self.K) for each in self.dataset_lengths}
+        self.dataset_props_sum = sum(
+            [self.dataset_props[each] for each in self.dataset_props])
 
         print("Finish Prop Sampler initialization.")
-        
+
     def __iter__(self):
         iter_list = []
         for each in self.dataset_props:
-            iter_list.extend(np.random.choice(self.data_positions[each], size=self.dataset_props[each], replace=False).tolist())
-        
+            iter_list.extend(np.random.choice(
+                self.data_positions[each], size=self.dataset_props[each], replace=False).tolist())
+
         random.shuffle(iter_list)
 
         yield from iter_list
-    
+
     def __len__(self):
         return self.dataset_props_sum
 
+
 class AlignmentDataLoader(LightningDataModule):
-    def __init__(self,dataset_config, val_dataset_config=None, sample_mode='seq', model_name='bert-base-uncased', is_finetune=False, need_mlm=False, tokenizer_max_length=512, train_batch_size=32, eval_batch_size=4, num_workers=16, train_eval_split=0.8, **kwargs):
+    def __init__(self, dataset_config, val_dataset_config=None, sample_mode='seq', model_name='bert-base-uncased', is_finetune=False, need_mlm=False, tokenizer_max_length=512, train_batch_size=32, eval_batch_size=4, num_workers=16, train_eval_split=0.8, **kwargs):
         super().__init__(**kwargs)
         assert sample_mode in ['seq', 'proportion']
         self.sample_mode = sample_mode
@@ -696,11 +724,10 @@ class AlignmentDataLoader(LightningDataModule):
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         if "phi" in model_name:
             self.tokenizer.add_special_tokens({'pad_token': '[PAD]'})
-            
+
             # self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
             # self.tokenizer.add_special_tokens({'sep_token': '[SEP]'})
             # self.tokenizer.add_special_tokens({'cls_token': '[CLS]'})
-
 
         self.config = AutoConfig.from_pretrained(model_name)
 
@@ -713,38 +740,45 @@ class AlignmentDataLoader(LightningDataModule):
         if self.dataset is not None:
             print("Already Initilized LightningDataModule!")
             return
-        
+
         self.init_training_set()
 
         self.dataset = dict()
         if not self.is_finetune:
-            self.dataset['train'] = AlignmentDataset(dataset=self.raw_dataset[:int(self.train_eval_split*len(self.raw_dataset))], tokenizer=self.tokenizer, model_name=self.model_name, need_mlm=self.need_mlm)
-            self.dataset['test'] = AlignmentDataset(dataset=self.raw_dataset[int(self.train_eval_split*len(self.raw_dataset)):], tokenizer=self.tokenizer, model_name=self.model_name, need_mlm=self.need_mlm)
+            self.dataset['train'] = AlignmentDataset(dataset=self.raw_dataset[:int(self.train_eval_split*len(
+                self.raw_dataset))], tokenizer=self.tokenizer, model_name=self.model_name, need_mlm=self.need_mlm)
+            self.dataset['test'] = AlignmentDataset(dataset=self.raw_dataset[int(self.train_eval_split*len(
+                self.raw_dataset)):], tokenizer=self.tokenizer, model_name=self.model_name, need_mlm=self.need_mlm)
         else:
-            self.dataset['train'] = AlignmentDataset(dataset=self.raw_dataset[:], model_name=self.model_name, need_mlm=self.need_mlm)
-            self.dataset['test'] = AlignmentDataset(dataset=self.val_raw_dataset[:], model_name=self.model_name, need_mlm=self.need_mlm)
-            
-    
+            self.dataset['train'] = AlignmentDataset(
+                dataset=self.raw_dataset[:], model_name=self.model_name, need_mlm=self.need_mlm)
+            self.dataset['test'] = AlignmentDataset(
+                dataset=self.val_raw_dataset[:], model_name=self.model_name, need_mlm=self.need_mlm)
+
     def init_training_set(self):
         self.raw_dataset = []
         if self.sample_mode == 'seq':
             for each_dataset in self.dataset_config:
-                dataset_length = sum([1 for line in open(self.dataset_config[each_dataset]['data_path'], 'r', encoding='utf8')])
-                dataset_length_limit = self.dataset_config[each_dataset]['size'] if isinstance(self.dataset_config[each_dataset]['size'], int) else int(self.dataset_config[each_dataset]['size'] * dataset_length)
+                dataset_length = sum([1 for line in open(
+                    self.dataset_config[each_dataset]['data_path'], 'r', encoding='utf8')])
+                dataset_length_limit = self.dataset_config[each_dataset]['size'] if isinstance(
+                    self.dataset_config[each_dataset]['size'], int) else int(self.dataset_config[each_dataset]['size'] * dataset_length)
                 with open(self.dataset_config[each_dataset]['data_path'], 'r', encoding='utf8') as f:
                     try:
                         for i, example in enumerate(f):
                             if i >= dataset_length_limit:
                                 break
-                            self.raw_dataset.append(json.loads(example)) ## + dataset_name
+                            self.raw_dataset.append(
+                                json.loads(example))  # + dataset_name
                     except:
                         print(example)
                         data = json.loads(example)
-                        print(f"failed to load data from {each_dataset}.json, exiting...")
+                        print(f"failed to load data from {
+                              each_dataset}.json, exiting...")
                         exit()
-            
+
             random.shuffle(self.raw_dataset)
-        
+
         elif self.sample_mode == 'proportion':
             for each_dataset in tqdm(self.dataset_config, desc="Loading data from disk..."):
                 with open(self.dataset_config[each_dataset]['data_path'], 'r', encoding='utf8') as f:
@@ -752,24 +786,27 @@ class AlignmentDataLoader(LightningDataModule):
                         for i, example in enumerate(f):
                             jsonobj = json.loads(example)
                             jsonobj['dataset_name'] = each_dataset
-                            self.raw_dataset.append(jsonobj) ## + dataset_name
+                            self.raw_dataset.append(jsonobj)  # + dataset_name
                     except:
-                        print(f"failed to load data from {each_dataset}.json, exiting...")
+                        print(f"failed to load data from {
+                              each_dataset}.json, exiting...")
                         exit()
-            
+
             random.shuffle(self.raw_dataset)
-        
+
         if self.is_finetune:
             self.val_raw_dataset = []
             for each_dataset in self.val_dataset_config:
-                dataset_length = sum([1 for line in open(self.val_dataset_config[each_dataset]['data_path'], 'r', encoding='utf8')])
-                dataset_length_limit = self.val_dataset_config[each_dataset]['size'] if isinstance(self.val_dataset_config[each_dataset]['size'], int) else int(self.val_dataset_config[each_dataset]['size'] * dataset_length)
+                dataset_length = sum([1 for line in open(
+                    self.val_dataset_config[each_dataset]['data_path'], 'r', encoding='utf8')])
+                dataset_length_limit = self.val_dataset_config[each_dataset]['size'] if isinstance(
+                    self.val_dataset_config[each_dataset]['size'], int) else int(self.val_dataset_config[each_dataset]['size'] * dataset_length)
                 with open(self.val_dataset_config[each_dataset]['data_path'], 'r', encoding='utf8') as f:
                     for i, example in enumerate(f):
                         if i >= dataset_length_limit:
                             break
                         self.val_raw_dataset.append(json.loads(example))
-            
+
             random.shuffle(self.val_raw_dataset)
 
     def prepare_data(self) -> None:
@@ -780,16 +817,16 @@ class AlignmentDataLoader(LightningDataModule):
             return DataLoader(self.dataset['train'], batch_size=self.train_bach_size, shuffle=True, num_workers=self.num_workers)
         elif self.sample_mode == 'proportion':
             return DataLoader(self.dataset['train'], batch_size=self.train_bach_size, sampler=PropSampler(self.raw_dataset[:int(self.train_eval_split*len(self.raw_dataset))]), num_workers=self.num_workers)
-    
+
     # def get_train_data(self):
     #     torch_dataset_train = self.dataset['train']
     #     dataset_train = = Dataset.from_list(torch_dataset_train)
     #     return dataset_train
-    
+
     # def get_val_data(self):
     #     torch_dataset_val = self.dataset['test']
     #     dataset_val = = Dataset.from_list(torch_dataset_val)
-    #     return dataset_val 
+    #     return dataset_val
 
     def val_dataloader(self):
         return DataLoader(self.dataset['test'], batch_size=self.eval_batch_size, shuffle=False, num_workers=self.num_workers)

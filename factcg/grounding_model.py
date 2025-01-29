@@ -36,7 +36,6 @@ class GroundingModelForMultitaskLearning(pl.LightningModule):
     
         self.bin_layer = nn.Linear(self.base_model.config.hidden_size, 2)
         self.dropout = nn.Dropout(p=0.1)
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
 
     def half(self):
         if 'deberta' in self.model_name:
@@ -97,10 +96,6 @@ class GroundingModelForMultitaskLearning(pl.LightningModule):
             all_loss=all_loss if 'mlm_label' in batch.keys() else None,
             loss_nums=loss_nums if 'mlm_label' in batch.keys() else None,
             bi_label_logits=bi_label_score,
-            bi_label_finetuned_logits=None,
-            tri_label_finetuned_logits=None,
-            tri_label_logits=None,
-            reg_label_logits=None,
             hidden_states=base_model_output.hidden_states if "t5" not in self.model_name.lower() else None,
             attentions=base_model_output.attentions if "t5" not in self.model_name.lower() else None
         )
@@ -179,14 +174,6 @@ class GroundingModelForMultitaskLearning(pl.LightningModule):
         scheduler = {"scheduler": scheduler, "interval": "step", "frequency": 1}
         return [optimizer], [scheduler]
 
-    def mse_loss(self, input, target, ignored_index=-100.0, reduction='mean'):
-        mask = (target == ignored_index)
-        out = (input[~mask]-target[~mask])**2
-        if reduction == "mean":
-            return out.mean()
-        elif reduction == "sum":
-            return out.sum()
-
     def on_load_checkpoint(self, checkpoint):
         unwanted_keys = [
             'tri_layer.weight',
@@ -205,9 +192,5 @@ class ModelOutput():
     all_loss: Optional[list] = None
     loss_nums: Optional[list] = None
     bi_label_logits: torch.FloatTensor = None
-    bi_label_finetuned_logits: torch.FloatTensor = None
-    tri_label_finetuned_logits: torch.FloatTensor = None
-    tri_label_logits: torch.FloatTensor = None
-    reg_label_logits: torch.FloatTensor = None
     hidden_states: Optional[Tuple[torch.FloatTensor]] = None
     attentions: Optional[Tuple[torch.FloatTensor]] = None
