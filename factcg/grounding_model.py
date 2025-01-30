@@ -43,14 +43,9 @@ class GroundingModelForMultitaskLearning(pl.LightningModule):
         self.base_model.half()
         self.bin_layer.half()
 
-    def transfer_learning_init(self):
-        # Experiment Note: freezing backbone model for transfer learning style finetuning didn't lead to promising result
-        # self.base_model.requires_grad_(False)
-        # self.pooler.requires_grad_(False)
-        self.bin_layer.requires_grad_(False)
 
     def forward(self, batch):
-        # # remove padding tokens per batch to pad to longest sequence
+        # remove padding tokens per batch to pad to longest sequence
         max_length = torch.max(torch.sum(batch['attention_mask'], dim=1))
         batch['input_ids'] = batch['input_ids'][:, :max_length].squeeze(1)
         batch['attention_mask'] = batch['attention_mask'][:, :max_length].squeeze(1)
@@ -60,14 +55,11 @@ class GroundingModelForMultitaskLearning(pl.LightningModule):
                 input_ids = batch['input_ids'],
                 attention_mask = batch['attention_mask'],
                 token_type_ids = batch['token_type_ids'] if 'token_type_ids' in batch.keys() else None,
-                # output_attentions=True
             )
             pooler_output = self.pooler(base_model_output.last_hidden_state)
             bi_label_score = self.bin_layer(self.dropout(pooler_output))
-        # support binary for now
+
         elif 't5' in self.model_name.lower():
-            # print("start!!!!!!!!!!!!!!!!!")
-            
             batch['input_ids'] = batch['input_ids'].squeeze(1)
             batch['attention_mask'] = batch['attention_mask'].squeeze(1)
             decoder_input_ids = torch.zeros((batch['input_ids'].size(0),1), dtype=torch.long).to(batch['input_ids'].device)
@@ -85,19 +77,16 @@ class GroundingModelForMultitaskLearning(pl.LightningModule):
             bi_label_score = self.bin_layer(self.dropout(base_model_output.pooler_output)) ## pooled output for classification
         
         all_loss, loss_nums = [], []
-        if 'mlm_label' in batch.keys(): ### 'mlm_label' and 'align_label' when training
-            ce_loss_func = nn.CrossEntropyLoss(reduction='sum')
-            bi_label_loss = ce_loss_func(bi_label_score.view(-1, 2), batch['align_label'].view(-1)) / math.log(2)
-            bi_label_loss_num = torch.sum(batch['align_label'].view(-1) != -100)
-            all_loss = [bi_label_loss]
-            loss_nums = [bi_label_loss_num]
+        ce_loss_func = nn.CrossEntropyLoss(reduction='sum')
+        bi_label_loss = ce_loss_func(bi_label_score.view(-1, 2), batch['align_label'].view(-1)) / math.log(2)
+        bi_label_loss_num = torch.sum(batch['align_label'].view(-1) != -100)
+        all_loss = [bi_label_loss]
+        loss_nums = [bi_label_loss_num]
 
         return ModelOutput(
-            all_loss=all_loss if 'mlm_label' in batch.keys() else None,
-            loss_nums=loss_nums if 'mlm_label' in batch.keys() else None,
+            all_loss=all_loss,
+            loss_nums=loss_nums,
             bi_label_logits=bi_label_score,
-            hidden_states=base_model_output.hidden_states if "t5" not in self.model_name.lower() else None,
-            attentions=base_model_output.attentions if "t5" not in self.model_name.lower() else None
         )
             
     def training_step(self, train_batch, batch_idx):
@@ -121,7 +110,6 @@ class GroundingModelForMultitaskLearning(pl.LightningModule):
 
     def validation_step(self, val_batch, batch_idx):
         with torch.no_grad():
-            # print(val_batch.keys)
             output = self(val_batch)
 
             losses = output.all_loss
@@ -192,5 +180,3 @@ class ModelOutput():
     all_loss: Optional[list] = None
     loss_nums: Optional[list] = None
     bi_label_logits: torch.FloatTensor = None
-    hidden_states: Optional[Tuple[torch.FloatTensor]] = None
-    attentions: Optional[Tuple[torch.FloatTensor]] = None
