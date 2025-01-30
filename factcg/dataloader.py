@@ -88,6 +88,7 @@ class AlignmentDataset(Dataset):
         input_ids, attention_mask, token_type_ids, align_label = task_processor(index)
  
         if token_type_ids is not None:
+            print("HERE!!!!!!!!!!!!!!!!!!!!!")
             return {
                 'input_ids': input_ids,
                 'attention_mask': attention_mask,

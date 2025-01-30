@@ -46,6 +46,8 @@ class GroundingModelForMultitaskLearning(pl.LightningModule):
 
     def forward(self, batch):
         # remove padding tokens per batch to pad to longest sequence
+        print(batch)
+        assert False
         max_length = torch.max(torch.sum(batch['attention_mask'], dim=1))
         batch['input_ids'] = batch['input_ids'][:, :max_length].squeeze(1)
         batch['attention_mask'] = batch['attention_mask'][:, :max_length].squeeze(1)
@@ -77,15 +79,16 @@ class GroundingModelForMultitaskLearning(pl.LightningModule):
             bi_label_score = self.bin_layer(self.dropout(base_model_output.pooler_output)) ## pooled output for classification
         
         all_loss, loss_nums = [], []
-        ce_loss_func = nn.CrossEntropyLoss(reduction='sum')
-        bi_label_loss = ce_loss_func(bi_label_score.view(-1, 2), batch['align_label'].view(-1)) / math.log(2)
-        bi_label_loss_num = torch.sum(batch['align_label'].view(-1) != -100)
-        all_loss = [bi_label_loss]
-        loss_nums = [bi_label_loss_num]
+        if 'align_label' in batch.keys(): # if in training mode
+            ce_loss_func = nn.CrossEntropyLoss(reduction='sum')
+            bi_label_loss = ce_loss_func(bi_label_score.view(-1, 2), batch['align_label'].view(-1)) / math.log(2)
+            bi_label_loss_num = torch.sum(batch['align_label'].view(-1) != -100)
+            all_loss = [bi_label_loss]
+            loss_nums = [bi_label_loss_num]
 
         return ModelOutput(
-            all_loss=all_loss,
-            loss_nums=loss_nums,
+            all_loss=all_loss if 'align_label' in batch.keys() else None,,
+            loss_nums=loss_nums if 'align_label' in batch.keys() else None,,
             bi_label_logits=bi_label_score,
         )
             

@@ -1,0 +1,5 @@
+adam_epsilon: 1.0e-06
+learning_rate: 5.0e-05
+model_name: microsoft/deberta-v3-large
+warmup_steps_portion: 0.06
+weight_decay: 0
