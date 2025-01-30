@@ -20,6 +20,14 @@ If you find the repository or FactCG helpful, please cite the following paper
 }
 ```
 
+## Checkpoint
+We provide FactCG with deberta-v3-large backbone (0.4B parameters) pytorch lightning checkpoint at
+
+https://huggingface.co/derenlei/FactCG-DeBERTa-v3-Large/blob/main/factcg_dbt.ckpt
+
+Note: The checkpoint has everything needed to restore a pytorch lightning training session. You can extract the model parameters for a light-weight inference usage.
+
+
 ## Training
 To reproduce FactCG-DBT with 2-stage  training
 ```
