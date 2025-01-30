@@ -20,10 +20,22 @@ If you find the repository or FactCG helpful, please cite the following paper
 }
 ```
 
+## LLM-Aggrefact Leaderboard
+We evaluate FactCG with dynamic threshold and fixed threshold settings on LLM-Aggrefact (<1B models). Highest score (except GPT) for each dataset is highlighted with dark green and second highest score highlighted with light green. We observe that FactCG-DBT with only 0.4B parameter achieves best BAcc.
+### Dynamic Threshold (our preferred way)
+We adjust the threshold for each LLM-AGGREFACT dataset to two decimal places, optimizing for the best performance on the validation set. In this way, we can assess fact-checkers' optimal performance without fine-tuning for each specific scenario.
+<p align="center"><img src="figs/llm_aggrefact_dynamic_threshold.png" width="1000"/></p>
+
+### Fixed Threshold
+We fix the thresohld to 0.5.
+<p align="center"><img src="figs/llm_aggrefact_fixed_threshold.png" width="1000"/></p>
+
 ## Checkpoint
 We provide FactCG with deberta-v3-large backbone (0.4B parameters) pytorch lightning checkpoint at
 
 https://huggingface.co/derenlei/FactCG-DeBERTa-v3-Large/blob/main/factcg_dbt.ckpt
+
+To run `benchmark.sh` directly, create `ckpt` folder in the root directory and place the checkpoint inside.
 
 Note: The checkpoint has everything needed to restore a pytorch lightning training session. You can extract the model parameters for a light-weight inference usage.
 
@@ -41,7 +53,7 @@ sh train.sh
 ```
 Note:
 * you can evaulate different fact-checkers: `FactCG`, `Minicheck`, `AlignScore`, `SummaC-ZS` and `SummaC-CV`
-* you can choose `threshold_setting` as `tune` for selecting the best threshold per best dev set performance in LLM-Aggrefact, or as `fixed` for fixing threshold to 0.5.
+* you can choose `threshold_` as `tune` for selecting the best threshold per best dev set performance in LLM-Aggrefact, or as `fixed` for fixing threshold to 0.5.
 
 2.  Evaluation on Connected Reasoning
 
