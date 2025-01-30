@@ -46,8 +46,6 @@ class GroundingModelForMultitaskLearning(pl.LightningModule):
 
     def forward(self, batch):
         # remove padding tokens per batch to pad to longest sequence
-        print(batch)
-        assert False
         max_length = torch.max(torch.sum(batch['attention_mask'], dim=1))
         batch['input_ids'] = batch['input_ids'][:, :max_length].squeeze(1)
         batch['attention_mask'] = batch['attention_mask'][:, :max_length].squeeze(1)
