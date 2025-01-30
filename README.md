@@ -1,0 +1,2 @@
+### benchmark.py
+ python benchmark.py --threshold-setting tune --factcg --factcg-model-name microsoft/deberta-v3-large --factcg-ckpt ./ckpt_deberta_large_20240827_multihop_musique_c2d_d2c_v2_rbt_filter/microsoft-deberta-v3-large_final.ckpt

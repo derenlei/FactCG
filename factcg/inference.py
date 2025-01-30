@@ -70,7 +70,7 @@ class Inferencer():
         assert type(premise_sent_mat[0]) is str
         assert type(hypo_sents_mat[0]) is str
 
-        output_score_all_flat, attentions_all = self.inference(
+        output_score_all_flat = self.inference(
             premise_sent_mat, hypo_sents_mat)
 
         output_score_all = []
@@ -295,26 +295,18 @@ class Inferencer():
         batch = self.batch_tokenize(premise, hypo)
 
         output_score_bin = []
-        output_attentions = []
         for mini_batch in tqdm(batch, desc="Evaluating", disable=not self.verbose or self.disable_progress_bar_in_inference):
             mini_batch = mini_batch.to(self.device)
             with torch.no_grad():
                 model_output = self.model(mini_batch)
                 model_output_bin = model_output.bi_label_logits  # Temperature Scaling / 2.5
-                if model_output.attentions:
-                    model_output.attentions = list(model_output.attentions)
-                    for i in range(len(model_output.attentions)):
-                        model_output.attentions[i] = model_output.attentions[i].detach(
-                        ).cpu()
-                    output_attentions.append(model_output.attentions)
-
                 model_output_bin = self.softmax(model_output_bin).cpu()
                 output_score_bin.append(model_output_bin[:, 1])
 
         if output_score_bin:
             output_score_bin = torch.cat(output_score_bin)
 
-        return output_score_bin, output_attentions
+        return output_score_bin
 
     def batch_tokenize(self, premise, hypo):
         """

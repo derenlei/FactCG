@@ -85,8 +85,8 @@ class GroundingModelForMultitaskLearning(pl.LightningModule):
             loss_nums = [bi_label_loss_num]
 
         return ModelOutput(
-            all_loss=all_loss if 'align_label' in batch.keys() else None,,
-            loss_nums=loss_nums if 'align_label' in batch.keys() else None,,
+            all_loss=all_loss if 'align_label' in batch.keys() else None,
+            loss_nums=loss_nums if 'align_label' in batch.keys() else None,
             bi_label_logits=bi_label_score,
         )
             
