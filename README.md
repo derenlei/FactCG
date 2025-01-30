@@ -21,7 +21,10 @@ If you find the repository or FactCG helpful, please cite the following paper
 ```
 
 ## Training
-TODO
+To reproduce FactCG-DBT with 2-stage  training
+```
+sh train.sh
+```
 
 ## Evaluation
 1.  Evaluate on LLM-Aggrefact Benchmark
@@ -31,8 +34,9 @@ TODO
 Note:
 * you can evaulate different fact-checkers: `FactCG`, `Minicheck`, `AlignScore`, `SummaC-ZS` and `SummaC-CV`
 * you can choose `threshold_setting` as `tune` for selecting the best threshold per best dev set performance in LLM-Aggrefact, or as `fixed` for fixing threshold to 0.5.
-* TODO
 
 2.  Evaluation on Connected Reasoning
 
-TODO
+```
+python3 wice_connected_reasoning.py --method factcg
+```
