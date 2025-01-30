@@ -1,1 +1,0 @@
-CUDA_VISIBLE_DEVICES=1 python3 public_test.py --ckpt /home/derenlei/ProjZeroOnline/ModelTraining/ckpt_deberta_large_20240827_multihop_musique_c2d_d2c_v2_rbt_filter/microsoft-deberta-v3-large_final.ckpt

@@ -1,0 +1,1 @@
+minicheck @ git+https://github.com/Liyan06/MiniCheck.git@main
