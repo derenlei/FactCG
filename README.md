@@ -68,13 +68,13 @@ print(score) # example output [0.7840349674224854]
 ### Install for benchmarking
 Please note due to legacy issue, some of previous work on fact-checkers have dependency conflict. For example, AlignScore requires `pytorch-lightning<2 and >=1.7.7` but we used a higher version. Therefore there are some extra dependencies to run the benchmarking besides our factcg. Due to time constrain we didn't explore resolving those conflicts into a unified python env. Please check the following env requirements for previous work on fact-checkers:
 
-requirements for minicheck:
+requirements for `minicheck`:
 ```pip
 minicheck @ git+https://github.com/Liyan06/MiniCheck.git@main
 accelerate>=0.26.0
 ```
 
-requirements for alignscore and `summa`, `summac`
+requirements for `alignscore` and `summa`, `summac`
 ```pip
 alignscore @ git+https://github.com/yuh-zha/AlignScore.git@main # pytorch-lightning<2 and >=1.7.7
 summa==1.2.0
