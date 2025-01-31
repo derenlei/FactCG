@@ -3,7 +3,6 @@ import logging
 import random
 from typing import Optional, Sized, List, Dict
 import numpy as np
-from .utils import INSTRUCTION_TEMPLATE
 import torch
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader
@@ -88,7 +87,6 @@ class AlignmentDataset(Dataset):
         input_ids, attention_mask, token_type_ids, align_label = task_processor(index)
  
         if token_type_ids is not None:
-            print("HERE!!!!!!!!!!!!!!!!!!!!!")
             return {
                 'input_ids': input_ids,
                 'attention_mask': attention_mask,

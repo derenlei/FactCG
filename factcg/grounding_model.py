@@ -1,21 +1,17 @@
 import math
-from typing import Optional, Tuple
-from transformers import get_linear_schedule_with_warmup, AutoConfig, AutoModel, AutoTokenizer, AutoModelForCausalLM
+from typing import Optional
+from transformers import get_linear_schedule_with_warmup, AutoConfig, AutoModel
 from torch.optim import AdamW
-from transformers import Adafactor
-from transformers import BertModel, RobertaModel, PhiModel, PhiPreTrainedModel, PhiForSequenceClassification
-from transformers import DebertaV2ForSequenceClassification, DebertaV2ForMaskedLM
-from transformers import T5ForConditionalGeneration, AutoModelForSeq2SeqLM
+from transformers import RobertaModel
+from transformers import DebertaV2ForSequenceClassification
+from transformers import T5ForConditionalGeneration
 import torch
 import torch.nn as nn
 import pytorch_lightning as pl
-from sklearn.metrics import f1_score
 from dataclasses import dataclass
-import copy
-import os
 import torch
 
-class GroundingModelForMultitaskLearning(pl.LightningModule):
+class GroundingModel(pl.LightningModule):
     def __init__(self, model_name='microsoft/deberta-v3-large', *args, **kwargs) -> None:
         super().__init__()
         # Already defined in lightning: self.device

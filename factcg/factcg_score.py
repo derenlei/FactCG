@@ -2,7 +2,7 @@ from .inference import Inferencer
 from typing import List
 
 
-class GroundingScore:
+class FactCGScore:
     def __init__(self, model_name: str, batch_size: int, ckpt_path: str, verbose=True) -> None:
         self.model = Inferencer(
             ckpt_path=ckpt_path,

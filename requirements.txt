@@ -1,1 +1,11 @@
-minicheck @ git+https://github.com/Liyan06/MiniCheck.git@main
+torch==2.2.1
+transformers
+pytorch_lightning>=2.2.0
+datasets
+nltk
+pandas
+numpy
+openai
+scikit-learn
+sentencepiece
+protobuf

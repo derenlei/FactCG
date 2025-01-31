@@ -39,7 +39,47 @@ To run `benchmark.sh` directly, create `ckpt` folder in the root directory and p
 
 Note: The checkpoint has everything needed to restore a pytorch lightning training session. You can extract the model parameters for a light-weight inference usage.
 
+## Installation
 
+We trained and evaluated our model using `torch==2.2.1` and `pytorch_lightning>=2.2.0`. We recommend using the same version for reproducibility. 
+
+### Pip install factcg
+
+You can install `factcg` by cloning this repository and `pip install .`.
+
+```python
+from factcg import FactCGScore
+
+scorer = FactCGScore(model_name="microsoft/deberta-v3-large",
+                     batch_size=16, ckpt_path="./ckpt/factcg_dbt.ckpt", verbose=False)
+score = scorer.score(contexts=['sun raises from east'], claims=['sun raises from west'])
+print(score) # example output [0.06528743356466293]
+score = scorer.score(contexts=['sun raises from west'], claims=['sun raises from west'])
+print(score) # example output [0.7840349674224854]
+```
+`model_name`: the backbone model. 'microsoft/deberta-v3-large' for instance.
+
+`batch_size`: batch size for inference.
+
+`ckpt_path`: the path to the checkpoint. [download-here]
+
+`verbose`: whether to output the progress bar
+
+### Install for benchmarking
+Please note due to legacy issue, some of previous work on fact-checkers have dependency conflict. For example, AlignScore requires `pytorch-lightning<2 and >=1.7.7` but we used a higher version. Therefore there are some extra dependencies to run the benchmarking besides our factcg. Due to time constrain we didn't explore resolving those conflicts into a unified python env. Please check the following env requirements for previous work on fact-checkers:
+
+requirements for minicheck:
+```pip
+minicheck @ git+https://github.com/Liyan06/MiniCheck.git@main
+accelerate>=0.26.0
+```
+
+requirements for alignscore and `summa`, `summac`
+```pip
+alignscore @ git+https://github.com/yuh-zha/AlignScore.git@main # pytorch-lightning<2 and >=1.7.7
+summa==1.2.0
+summac==0.0.3  #summac 0.0.3 depends on transformers==4.8.1
+```
 ## Training
 To reproduce FactCG-DBT with 2-stage  training
 ```
@@ -53,7 +93,7 @@ sh train.sh
 ```
 Note:
 * you can evaulate different fact-checkers: `FactCG`, `Minicheck`, `AlignScore`, `SummaC-ZS` and `SummaC-CV`
-* you can choose `threshold_` as `tune` for selecting the best threshold per best dev set performance in LLM-Aggrefact, or as `fixed` for fixing threshold to 0.5.
+* you can choose `threshold-setting` as `tune` for selecting the best threshold per best dev set performance in LLM-Aggrefact, or as `fixed` for fixing threshold to 0.5.
 
 2.  Evaluation on Connected Reasoning
 

@@ -1,9 +1,7 @@
 import argparse
-import os
-from factcg import GroundingScore
+from factcg import FactCGScore
 from sklearn.metrics import balanced_accuracy_score
 from datasets import load_dataset
-from minicheck.minicheck import MiniCheck
 import pandas as pd
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -67,18 +65,20 @@ def run_benchmark(parser):
         if not all((args.factcg_model_name, args.factcg_ckpt)):
             parser.error(
                 '--factcg-model-name, --factcg-ckpt must be specified to run FactCG')
-        scorer = GroundingScore(model_name=args.factcg_model_name,
+        scorer = FactCGScore(model_name=args.factcg_model_name,
                                 batch_size=16, ckpt_path=args.factcg_ckpt)
     elif args.minicheck:
         if not all(args.minicheck_model_name):
             parser.error(
                 '--minicheck-model-name must be specified to run MiniCheck')
+        from minicheck.minicheck import MiniCheck
         scorer = MiniCheck(model_name=args.minicheck_model_name,
                            cache_dir='./minicheck_ckpts')
     elif args.alignscore:
         if not all((args.alignscore_ckpt)):
             parser.error(
                 '--alignscore-ckpt must be specified to run AlignScore')
+        from alignscore import AlignScore
         scorer = AlignScore(model='roberta-large', batch_size=32, device='cuda:0',
                             ckpt_path=args.alignscore_ckpt, evaluation_mode='nli_sp')
     elif args.summac_zs:

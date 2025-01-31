@@ -1,6 +1,6 @@
 from pytorch_lightning import Trainer, seed_everything
 from factcg.dataloader import AlignmentDataLoader
-from factcg.grounding_model import GroundingModelForMultitaskLearning
+from factcg.grounding_model import GroundingModel
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 from argparse import ArgumentParser
@@ -23,7 +23,7 @@ def train(datasets, args):
     dm.setup()
 
     if args.ckpt_path != "":
-        model = GroundingModelForMultitaskLearning.load_from_checkpoint(
+        model = GroundingModel.load_from_checkpoint(
             args.ckpt_path,
             model_name=args.model_name,
             adam_epsilon=args.adam_epsilon,
@@ -32,7 +32,7 @@ def train(datasets, args):
             warmup_steps_portion=args.warm_up_proportion
         )
     else:
-        model = GroundingModelForMultitaskLearning(
+        model = GroundingModel(
             model_name=args.model_name,
             adam_epsilon=args.adam_epsilon,
             learning_rate=args.learning_rate,

@@ -1,14 +1,10 @@
 from datasets import load_dataset
 import json
-from tqdm import tqdm
 import random
-from transformers import AutoConfig, AutoTokenizer, AutoModelForSequenceClassification
-import torch
 import pandas as pd
 import random
 from sklearn.metrics import balanced_accuracy_score
-from factcg import GroundingScore
-import os
+from factcg import FactCGScore
 import argparse
 random.seed(2024)
 
@@ -49,7 +45,7 @@ if __name__ == "__main__":
         model_name_hf = "microsoft/deberta-v3-large"
 
         prediction_head = "bin_sp"
-        scorer = GroundingScore(model_name=model_name_hf, batch_size=16, ckpt_path=ckpt)
+        scorer = FactCGScore(model_name=model_name_hf, batch_size=16, ckpt_path=ckpt)
     elif method == "minicheck":
         from minicheck.minicheck import MiniCheck
         # scorer = MiniCheck(model_name='flan-t5-large', cache_dir='./minicheck_ckpts')

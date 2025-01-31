@@ -16,13 +16,17 @@ classifiers = [
 ]
 
 dependencies = [
-    "torch",
-    "transformers",
-    "datasets",
     "nltk",
     "pandas",
     "numpy",
-    "openai"
+    "torch==2.2.1",
+    "transformers",
+    "pytorch_lightning>=2.2.0",
+    "datasets",
+    "openai",
+    "scikit-learn",
+    "sentencepiece",
+    "protobuf"
 ]
 
 [tool.setuptools]

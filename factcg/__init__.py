@@ -1,4 +1,4 @@
-from .grounding_score import GroundingScore
+from .factcg_score import FactCGScore
 import nltk
 
 try:

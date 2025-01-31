@@ -2,17 +2,13 @@ from logging import warning
 from nltk.tokenize import sent_tokenize
 import torch
 from .utils import INSTRUCTION_TEMPLATE
-from .grounding_model import GroundingModelForMultitaskLearning
-from transformers import AutoConfig, AutoTokenizer
+from .grounding_model import GroundingModel
+from transformers import AutoTokenizer
 import torch.nn as nn
 from tqdm import tqdm
-import os
 from typing import List
 import nltk
-import numpy as np
 import math
-
-from nltk.tokenize.texttiling import TextTilingTokenizer
 
 
 class Inferencer():
@@ -23,11 +19,11 @@ class Inferencer():
             self.device = torch.device("cpu")
             warning('CUDA not available, loading all tensors into cpu')
         if ckpt_path is not None:
-            self.model = GroundingModelForMultitaskLearning.load_from_checkpoint(
+            self.model = GroundingModel.load_from_checkpoint(
                 ckpt_path, model_name=model_name, strict=False).to(self.device)
         else:
             warning('loading UNTRAINED model!')
-            self.model = GroundingModelForMultitaskLearning(
+            self.model = GroundingModel(
                 model_name=model_name).to(self.device)
         self.model_name = model_name
         self.model.eval()
@@ -36,9 +32,6 @@ class Inferencer():
         self.softmax = nn.Softmax(dim=-1)
         self.disable_progress_bar_in_inference = False
         self.verbose = verbose
-
-        # emperically observed that w=20 leads to worse result on some measurement sets.
-        # self.textiling = TextTilingTokenizer(w=10)
 
     def batch_inference(self, premise: list, hypo: list):
         """
@@ -74,17 +67,19 @@ class Inferencer():
 
         output_score_all = []
         best_chunk_ids = []
-        output_score_per_example = torch.split(output_score_all_flat, [math.prod(n) for n in chunksize_per_example])
+        output_score_per_example = torch.split(
+            output_score_all_flat, [math.prod(n) for n in chunksize_per_example])
         for output_score, chunk_size in zip(output_score_per_example, chunksize_per_example):
             hypo_len, premise_len = chunk_size
             best_chunk_id = output_score.view(
                 hypo_len, premise_len).max(dim=1).indices[0].item()
-            output_score_val = output_score.view(hypo_len, premise_len).max(dim=1).values.mean().item()
+            output_score_val = output_score.view(
+                hypo_len, premise_len).max(dim=1).values.mean().item()
             output_score_all.append(output_score_val)
             best_chunk_ids.append(best_chunk_id)
         return output_score_all, best_chunk_ids
 
-    def chunking_src(self, src: str, max_chunk_size: int = 550): 
+    def chunking_src(self, src: str, max_chunk_size: int = 550):
         def get_tokens(text: str) -> List[str]:
             return nltk.word_tokenize(text)
 
@@ -161,7 +156,8 @@ class Inferencer():
         input premise and hypos are lists
         """
         assert isinstance(premise, list) and isinstance(hypo, list)
-        assert len(premise) == len(hypo), "premise and hypo should be in the same length."
+        assert len(premise) == len(
+            hypo), "premise and hypo should be in the same length."
 
         batch = []
         for mini_batch_pre, mini_batch_hypo in zip(self.chunks(premise, self.batch_size), self.chunks(hypo, self.batch_size)):
@@ -196,20 +192,20 @@ class Inferencer():
             try:
                 output = self.tokenizer(
                     premise_list,
-                    hypo_list, 
+                    hypo_list,
                     truncation='only_first',
-                    padding='longest', 
-                    max_length=2048, 
+                    padding='longest',
+                    max_length=2048,
                     return_tensors='pt'
                 )
             except:
                 warning('text_b too long...')
                 output = self.tokenizer(
-                    premise_list, 
-                    hypo_list, 
+                    premise_list,
+                    hypo_list,
                     truncation=True,
-                    padding='longest', 
-                    max_length=2048, 
+                    padding='longest',
+                    max_length=2048,
                     return_tensors='pt'
                 )
 
