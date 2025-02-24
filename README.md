@@ -33,11 +33,32 @@ We fix the thresohld to 0.5.
 ## Checkpoint
 We provide FactCG with deberta-v3-large backbone (0.4B parameters) pytorch lightning checkpoint at
 
-https://huggingface.co/derenlei/FactCG-DeBERTa-v3-Large/blob/main/factcg_dbt.ckpt
+https://huggingface.co/yaxili96/FactCG-DeBERTa-v3-Large/tree/main/pytorch_lightning_ckpt
 
-To run `benchmark.sh` directly, create `ckpt` folder in the root directory and place the checkpoint inside.
+We also upload the checkpoint to huggingface as a safetensor with model name as `yaxili96/FactCG-DeBERTa-v3-Large`
 
-Note: The checkpoint has everything needed to restore a pytorch lightning training session. You can extract the model parameters for a light-weight inference usage.
+To run `benchmark.sh` using huggingface model checkpoint, specify the `use_hf_ckpt` parameter. Otherwise download the lightning checkpoint, create `ckpt` folder in the root directory and place the checkpoint inside, and specify the `factcg_ckpt`
+
+```shell
+CUDA_VISIBLE_DEVICES=1 python3 benchmark.py --threshold-setting fixed --factcg --factcg-model-name microsoft/deberta-v3-large --use-hf-ckpt
+```
+
+```shell
+FACTCG_CKPT="ckpt/factcg_dbt.ckpt"
+CUDA_VISIBLE_DEVICES=1 python3 benchmark.py --threshold-setting fixed --factcg --factcg-model-name microsoft/deberta-v3-large --factcg-ckpt $FACTCG_CKPT
+```
+
+you can also load our model directly via huggingface:
+```python
+from transformers import AutoTokenizer, AutoConfig, AutoModelForSequenceClassification
+config = AutoConfig.from_pretrained("yaxili96/FactCG-DeBERTa-v3-Large", num_labels=2, finetuning_task="text-classification", revision='main', token=None, cache_dir="./cache")
+config.problem_type = "single_label_classification"
+tokenizer = AutoTokenizer.from_pretrained("yaxili96/FactCG-DeBERTa-v3-Large", use_fast=True, revision='main', token=None, cache_dir="./cache")
+model = AutoModelForSequenceClassification.from_pretrained(
+            "yaxili96/FactCG-DeBERTa-v3-Large", config=config, revision='main', token=None, ignore_mismatched_sizes=False, cache_dir="./cache")
+```
+
+Note: The pytorch_lightning checkpoint has everything needed to restore a pytorch lightning training session. You can extract the model parameters for a light-weight inference usage.
 
 ## Installation
 

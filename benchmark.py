@@ -62,11 +62,13 @@ def run_benchmark(parser):
     args = parser.parse_args()
 
     if args.factcg:
-        if not all((args.factcg_model_name, args.factcg_ckpt)):
+        if not all((args.factcg_model_name)):
             parser.error(
-                '--factcg-model-name, --factcg-ckpt must be specified to run FactCG')
+                '--factcg-model-name must be specified to run FactCG')
+        if not args.use_hf_ckpt and not args.factcg_ckpt:
+            parser.error("--factcg-ckpt must be specified if not using huggingface ckpt")
         scorer = FactCGScore(model_name=args.factcg_model_name,
-                                batch_size=16, ckpt_path=args.factcg_ckpt)
+                                batch_size=16, ckpt_path=args.factcg_ckpt, use_hf_ckpt=args.use_hf_ckpt)
     elif args.minicheck:
         if not all(args.minicheck_model_name):
             parser.error(
@@ -126,7 +128,9 @@ if __name__ == "__main__":
         '--factcg', action='store_true', help='Run FactCG against LLM-AggreFact')
     factcg_parser.add_argument('--factcg-model-name', type=str,
                                choices=['google/flan-t5-large', 'microsoft/deberta-v3-large'])
-    factcg_parser.add_argument('--factcg-ckpt', type=str)
+    factcg_parser.add_argument('--factcg-ckpt', type=str, default=None, required=False)
+    factcg_parser.add_argument(
+        '--use-hf-ckpt', action='store_true', help='Use huggingface checkpoint, only deberta supported.')
 
     # parser group for Minicheck
     minicheck_parser = parser.add_argument_group('Minicheck')
