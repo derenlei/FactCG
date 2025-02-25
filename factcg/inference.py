@@ -4,6 +4,7 @@ import torch
 from .utils import INSTRUCTION_TEMPLATE
 from .grounding_model import GroundingModel
 from transformers import AutoTokenizer
+from transformers import AutoConfig, AutoTokenizer, AutoModelForSequenceClassification
 import torch.nn as nn
 from tqdm import tqdm
 from typing import List
@@ -12,23 +13,37 @@ import math
 
 
 class Inferencer():
-    def __init__(self, ckpt_path, model_name='microsoft/deberta-v3-large', batch_size=32, verbose=True) -> None:
+    def __init__(self, ckpt_path=None, model_name='microsoft/deberta-v3-large', batch_size=32, verbose=True, use_hf_ckpt=True) -> None:
         if torch.cuda.is_available():
             self.device = torch.device("cuda")
         else:
             self.device = torch.device("cpu")
             warning('CUDA not available, loading all tensors into cpu')
-        if ckpt_path is not None:
+        if use_hf_ckpt:
+            if not 'deberta' in model_name.lower():
+                raise ValueError("Only DeBERTa-v3-Large has model checkpoint on huggingface")
+            ckpt_path = "yaxili96/FactCG-DeBERTa-v3-Large"
+            config = AutoConfig.from_pretrained(
+                ckpt_path, num_labels=2, finetuning_task="text-classification", revision='main', token=None, cache_dir="./cache")
+            config.problem_type = "single_label_classification"
+
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                ckpt_path, use_fast=True, revision='main', token=None, cache_dir="./cache")
+            self.model = AutoModelForSequenceClassification.from_pretrained(
+                ckpt_path, config=config, revision='main', token=None, ignore_mismatched_sizes=False, cache_dir="./cache").to(self.device)
+        elif ckpt_path is not None:
             self.model = GroundingModel.load_from_checkpoint(
                 ckpt_path, model_name=model_name, strict=False).to(self.device)
+
+            self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         else:
             warning('loading UNTRAINED model!')
             self.model = GroundingModel(
                 model_name=model_name).to(self.device)
+        self.use_hf_ckpt = use_hf_ckpt
         self.model_name = model_name
         self.model.eval()
         self.batch_size = batch_size
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.softmax = nn.Softmax(dim=-1)
         self.disable_progress_bar_in_inference = False
         self.verbose = verbose
@@ -141,8 +156,15 @@ class Inferencer():
         for mini_batch in tqdm(batch, desc="Evaluating", disable=not self.verbose or self.disable_progress_bar_in_inference):
             mini_batch = mini_batch.to(self.device)
             with torch.no_grad():
-                model_output = self.model(mini_batch)
-                model_output_bin = model_output.bi_label_logits  # Temperature Scaling / 2.5
+                if self.use_hf_ckpt and 'deberta' in self.model_name.lower():
+                    # hugging face model inference
+                    mini_batch = {k: v.to(self.model.device)
+                                  for k, v in mini_batch.items()}
+                    model_output = self.model(**mini_batch)
+                    model_output_bin = model_output.logits
+                else:
+                    model_output = self.model(mini_batch)
+                    model_output_bin = model_output.bi_label_logits  # Temperature Scaling / 2.5
                 model_output_bin = self.softmax(model_output_bin).cpu()
                 output_score_bin.append(model_output_bin[:, 1])
 
