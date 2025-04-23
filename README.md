@@ -1,6 +1,6 @@
 # FactCG: Enhancing Fact Checkers with Graph-Based Multi-Hop Data
 
-Pytorch implementation of our EMNLP 2025 paper: [FactCG: Enhancing Fact Checkers with Graph-Based Multi-Hop Data](https://arxiv.org/pdf/2501.17144).
+Pytorch implementation of our NAACL 2025 paper: [FactCG: Enhancing Fact Checkers with Graph-Based Multi-Hop Data](https://arxiv.org/pdf/2501.17144).
 
 We propose a fact-checker to detect Large language Model ungrounded hallucinations and a synthetic data generation method to collect high quality training data.
 
