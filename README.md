@@ -4,7 +4,7 @@ Pytorch implementation of our NAACL 2025 paper: [FactCG: Enhancing Fact Checkers
 
 We propose a fact-checker to detect Large language Model ungrounded hallucinations and a synthetic data generation method to collect high quality training data.
 
-We leverage LLM to convert text documents into content graphs. Graph data, in semi-structured form, is easier to manipulate in both neural and symbolic ways than text. Thus allow us to create high quality and high granularity syhthetic data with high control.
+We leverage LLM to convert text documents into content graphs. Graph data, in semi-structured form, is easier to manipulate in both neural and symbolic ways than text. Thus allow us to create high quality and high granularity synthetic data with high control.
 
 <p align="center"><img src="figs/cg2c_doc.png" width="1000"/></p>
 
